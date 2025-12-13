@@ -1,4 +1,5 @@
 use std::fmt;
+use hex::FromHexError;
 
 /// Represents all possible errors that can occur in the Crust Git plumbing implementation.
 /// This enum centralizes error handling to provide consistent error reporting and
@@ -20,6 +21,10 @@ pub enum CrustError {
     /// A general repository-related error that doesn't fit other categories.
     /// Used for issues like invalid repository state or configuration problems.
     RepositoryError(String),
+
+    /// Error occurred while decoding hex strings.
+    /// This wraps hex::FromHexError for hash decoding operations.
+    HexDecode(hex::FromHexError),
 }
 
 impl fmt::Display for CrustError {
@@ -29,6 +34,7 @@ impl fmt::Display for CrustError {
             CrustError::ObjectNotFound(hash) => write!(f, "Object not found: {}", hash),
             CrustError::CorruptObject(msg) => write!(f, "Corrupt object: {}", msg),
             CrustError::RepositoryError(msg) => write!(f, "Repository error: {}", msg),
+            CrustError::HexDecode(err) => write!(f, "Hex decode error: {}", err),
         }
     }
 }
@@ -40,5 +46,13 @@ impl std::error::Error for CrustError {}
 impl From<std::io::Error> for CrustError {
     fn from(err: std::io::Error) -> Self {
         CrustError::Io(err)
+    }
+}
+
+/// Automatic conversion from hex::FromHexError to CrustError.
+/// This allows using the '?' operator with hex decoding operations.
+impl From<hex::FromHexError> for CrustError {
+    fn from(err: hex::FromHexError) -> Self {
+        CrustError::HexDecode(err)
     }
 }

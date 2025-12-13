@@ -14,7 +14,7 @@ use crate::plumbing::commits::{create_commit, update_ref};
 /// Crust - A minimal Git plumbing clone in Rust
 #[derive(Parser)]
 #[command(name = "crust")]
-#[command(about = "Minimal Git plumbing implementation")]
+#[command(about = "Minimal plumbing implementation")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -22,7 +22,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialize a new Git repository
+    /// Initialize a new Crust repository
     Init,
     /// Store a file in the object database
     HashObject {
@@ -50,7 +50,7 @@ fn main() -> Result<(), CrustError> {
     match cli.command {
         Commands::Init => {
             initialize_repo()?;
-            println!("Initialized empty Git repository");
+            println!("Initialized empty Crust repository");
         }
         Commands::HashObject { file } => {
             let path = Path::new(&file);
