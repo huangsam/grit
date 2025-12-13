@@ -2,8 +2,9 @@ use std::path::Path;
 use crate::error::CrustError;
 use sha1::{Digest, Sha1};
 use flate2::write::ZlibEncoder;
+use flate2::read::ZlibDecoder;
 use flate2::Compression;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::fs;
 
 /// Represents the type of Git object stored in the repository.
@@ -110,9 +111,46 @@ pub fn store_object(content: &[u8], obj_type: ObjectType) -> Result<String, Crus
 /// * `ObjectNotFound` - If no object with the given hash exists
 /// * `CorruptObject` - If the stored data is malformed or decompression fails
 pub fn read_object(hash: &str) -> Result<Object, CrustError> {
-    // TODO: Implement
+    // Step 1: Retrieval
+    let (prefix, suffix) = hash.split_at(2);
+    let object_path = Path::new(".crust").join("objects").join(prefix).join(suffix);
+
+    if !object_path.exists() {
+        return Err(CrustError::ObjectNotFound(hash.to_string()));
+    }
+
+    let compressed_data = fs::read(object_path)?;
+
+    // Step 2: Decompression
+    let mut decoder = ZlibDecoder::new(&compressed_data[..]);
+    let mut decompressed_data = Vec::new();
+    decoder.read_to_end(&mut decompressed_data)?;
+
+    // Step 3: Header Parsing
+    let null_pos = decompressed_data.iter().position(|&b| b == 0)
+        .ok_or_else(|| CrustError::CorruptObject("No null byte found in object data".to_string()))?;
+
+    let header = &decompressed_data[..null_pos];
+    let content = &decompressed_data[null_pos + 1..];
+
+    // Parse header: "type size"
+    let header_str = std::str::from_utf8(header)
+        .map_err(|_| CrustError::CorruptObject("Invalid UTF-8 in object header".to_string()))?;
+
+    let mut parts = header_str.split_whitespace();
+    let type_str = parts.next()
+        .ok_or_else(|| CrustError::CorruptObject("Missing type in object header".to_string()))?;
+
+    let obj_type = match type_str {
+        "blob" => ObjectType::Blob,
+        "tree" => ObjectType::Tree,
+        "commit" => ObjectType::Commit,
+        _ => return Err(CrustError::CorruptObject(format!("Unknown object type: {}", type_str))),
+    };
+
+    // Step 4: Output
     Ok(Object {
-        obj_type: ObjectType::Blob,
-        content: Vec::new(),
+        obj_type,
+        content: content.to_vec(),
     })
 }
