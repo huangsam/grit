@@ -1,5 +1,4 @@
 use std::fmt;
-use hex::FromHexError;
 
 /// Represents all possible errors that can occur in the Crust Git plumbing implementation.
 /// This enum centralizes error handling to provide consistent error reporting and

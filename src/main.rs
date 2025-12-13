@@ -1,5 +1,4 @@
 mod error;
-mod utils;
 mod repository;
 mod plumbing;
 
@@ -9,7 +8,7 @@ use crate::error::CrustError;
 use crate::repository::initialize_repo;
 use crate::plumbing::objects::{store_object, read_object, ObjectType};
 use crate::plumbing::trees::make_snapshot;
-use crate::plumbing::commits::{create_commit, update_ref, get_current_commit};
+use crate::plumbing::commits::{create_commit, update_ref};
 
 /// Crust - A minimal Git plumbing clone in Rust
 #[derive(Parser)]
