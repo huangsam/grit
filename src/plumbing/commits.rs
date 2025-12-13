@@ -83,6 +83,39 @@ pub fn update_ref(ref_name: &str, hash: &str) -> Result<(), CrustError> {
     Ok(())
 }
 
+/// Reads the current commit hash that HEAD points to.
+/// This handles both direct hash references and symbolic references to branches.
+///
+/// # Returns
+/// * `Ok(Some(hash))` - The current commit hash if HEAD exists
+/// * `Ok(None)` - If HEAD doesn't exist (initial commit)
+/// * `Err(CrustError)` - If reading HEAD fails
+pub fn get_current_commit() -> Result<Option<String>, CrustError> {
+    let head_path = Path::new(".crust").join("HEAD");
+
+    if !head_path.exists() {
+        return Ok(None);
+    }
+
+    let head_content = fs::read_to_string(head_path)?;
+    let head_content = head_content.trim();
+
+    if let Some(ref_name) = head_content.strip_prefix("ref: ") {
+        // Symbolic reference, read the actual ref
+        let ref_path = Path::new(".crust").join(ref_name);
+
+        if ref_path.exists() {
+            let ref_content = fs::read_to_string(ref_path)?;
+            Ok(Some(ref_content.trim().to_string()))
+        } else {
+            Ok(None)
+        }
+    } else {
+        // Direct hash reference
+        Ok(Some(head_content.to_string()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
