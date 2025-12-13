@@ -82,3 +82,139 @@ pub fn update_ref(ref_name: &str, hash: &str) -> Result<(), CrustError> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+    use crate::repository::initialize_repo;
+    use crate::plumbing::objects::{read_object, ObjectType};
+
+    fn setup_test_repo() -> PathBuf {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = env::temp_dir().join(format!("crust_test_commits_{}", timestamp));
+        if temp_dir.exists() {
+            fs::remove_dir_all(&temp_dir).unwrap();
+        }
+        fs::create_dir_all(&temp_dir).unwrap();
+        env::set_current_dir(&temp_dir).unwrap();
+
+        // Initialize repository
+        initialize_repo().unwrap();
+
+        temp_dir
+    }
+
+    fn cleanup_test_repo(test_dir: PathBuf) {
+        if test_dir.exists() {
+            env::set_current_dir(env::temp_dir().parent().unwrap()).unwrap();
+            fs::remove_dir_all(test_dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_create_commit_initial() {
+        let test_dir = setup_test_repo();
+
+        let tree_hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let message = "Initial commit";
+
+        let commit_hash = create_commit(tree_hash, None, message).unwrap();
+
+        // Verify hash is 40 characters
+        assert_eq!(commit_hash.len(), 40);
+        assert!(commit_hash.chars().all(|c| c.is_ascii_hexdigit()));
+
+        // Read back the commit object
+        let commit_object = read_object(&commit_hash).unwrap();
+        assert_eq!(commit_object.obj_type, ObjectType::Commit);
+
+        let content = String::from_utf8_lossy(&commit_object.content);
+        assert!(content.contains(&format!("tree {}", tree_hash)));
+        assert!(!content.contains("parent"));
+        assert!(content.contains("author Crust User"));
+        assert!(content.contains("committer Crust User"));
+        assert!(content.contains("\n\nInitial commit\n"));
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_create_commit_with_parent() {
+        let test_dir = setup_test_repo();
+
+        let tree_hash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        let parent_hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let message = "Second commit";
+
+        let commit_hash = create_commit(tree_hash, Some(parent_hash), message).unwrap();
+
+        // Read back the commit object
+        let commit_object = read_object(&commit_hash).unwrap();
+        assert_eq!(commit_object.obj_type, ObjectType::Commit);
+
+        let content = String::from_utf8_lossy(&commit_object.content);
+        assert!(content.contains(&format!("tree {}", tree_hash)));
+        assert!(content.contains(&format!("parent {}", parent_hash)));
+        assert!(content.contains("\n\nSecond commit\n"));
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_update_ref_head() {
+        let test_dir = setup_test_repo();
+
+        let test_hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        // Update HEAD
+        update_ref("HEAD", test_hash).unwrap();
+
+        // Verify HEAD file content
+        let head_content = fs::read_to_string(".crust/HEAD").unwrap();
+        assert_eq!(head_content, format!("{}\n", test_hash));
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_update_ref_branch() {
+        let test_dir = setup_test_repo();
+
+        let test_hash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+        // Update a branch reference
+        update_ref("refs/heads/main", test_hash).unwrap();
+
+        // Verify branch file content
+        let branch_content = fs::read_to_string(".crust/refs/heads/main").unwrap();
+        assert_eq!(branch_content, format!("{}\n", test_hash));
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_update_ref_creates_directories() {
+        let test_dir = setup_test_repo();
+
+        let test_hash = "cccccccccccccccccccccccccccccccccccccccc";
+
+        // Update a deeply nested reference
+        update_ref("refs/remotes/origin/main", test_hash).unwrap();
+
+        // Verify directories were created and file content
+        assert!(Path::new(".crust/refs/remotes").exists());
+        assert!(Path::new(".crust/refs/remotes/origin").exists());
+
+        let remote_content = fs::read_to_string(".crust/refs/remotes/origin/main").unwrap();
+        assert_eq!(remote_content, format!("{}\n", test_hash));
+
+        cleanup_test_repo(test_dir);
+    }
+}

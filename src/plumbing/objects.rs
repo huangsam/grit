@@ -154,3 +154,118 @@ pub fn read_object(hash: &str) -> Result<Object, CrustError> {
         content: content.to_vec(),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+    use crate::repository::initialize_repo;
+
+    fn setup_test_repo() -> PathBuf {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = env::temp_dir().join(format!("crust_test_objects_{}", timestamp));
+        if temp_dir.exists() {
+            fs::remove_dir_all(&temp_dir).unwrap();
+        }
+        fs::create_dir_all(&temp_dir).unwrap();
+        env::set_current_dir(&temp_dir).unwrap();
+
+        // Initialize repository
+        initialize_repo().unwrap();
+
+        temp_dir
+    }
+
+    fn cleanup_test_repo(test_dir: PathBuf) {
+        if test_dir.exists() {
+            env::set_current_dir(env::temp_dir().parent().unwrap()).unwrap();
+            fs::remove_dir_all(test_dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_store_and_read_blob() {
+        let test_dir = setup_test_repo();
+
+        let content = b"Hello, World!";
+        let hash = store_object(content, ObjectType::Blob).unwrap();
+
+        // Verify hash is 40 characters
+        assert_eq!(hash.len(), 40);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+
+        // Read back the object
+        let object = read_object(&hash).unwrap();
+        assert_eq!(object.obj_type, ObjectType::Blob);
+        assert_eq!(object.content, content);
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_store_and_read_tree() {
+        let test_dir = setup_test_repo();
+
+        let tree_content = b"100644 file.txt\x00\xaa\xbb\xcc\xdd\xee\xff\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc";
+        let hash = store_object(tree_content, ObjectType::Tree).unwrap();
+
+        // Read back the object
+        let object = read_object(&hash).unwrap();
+        assert_eq!(object.obj_type, ObjectType::Tree);
+        assert_eq!(object.content, tree_content);
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_store_and_read_commit() {
+        let test_dir = setup_test_repo();
+
+        let commit_content = b"tree abc123\nauthor Test <test@example.com> 1234567890 +0000\n\nTest commit";
+        let hash = store_object(commit_content, ObjectType::Commit).unwrap();
+
+        // Read back the object
+        let object = read_object(&hash).unwrap();
+        assert_eq!(object.obj_type, ObjectType::Commit);
+        assert_eq!(object.content, commit_content);
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_read_nonexistent_object() {
+        let test_dir = setup_test_repo();
+
+        let result = read_object("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert!(result.is_err());
+
+        if let Err(CrustError::ObjectNotFound(hash)) = result {
+            assert_eq!(hash, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        } else {
+            panic!("Expected ObjectNotFound error");
+        }
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_store_empty_content() {
+        let test_dir = setup_test_repo();
+
+        let content = b"";
+        let hash = store_object(content, ObjectType::Blob).unwrap();
+
+        // Read back the object
+        let object = read_object(&hash).unwrap();
+        assert_eq!(object.obj_type, ObjectType::Blob);
+        assert_eq!(object.content, content);
+
+        cleanup_test_repo(test_dir);
+    }
+}

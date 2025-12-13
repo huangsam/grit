@@ -103,3 +103,160 @@ pub fn make_snapshot(path: &Path) -> Result<String, CrustError> {
     let tree_hash = store_object(&tree_content, ObjectType::Tree)?;
     Ok(tree_hash)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+    use crate::repository::initialize_repo;
+    use crate::plumbing::objects::{read_object, ObjectType};
+
+    fn setup_test_repo() -> PathBuf {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = env::temp_dir().join(format!("crust_test_trees_{}", timestamp));
+        if temp_dir.exists() {
+            fs::remove_dir_all(&temp_dir).unwrap();
+        }
+        fs::create_dir_all(&temp_dir).unwrap();
+        env::set_current_dir(&temp_dir).unwrap();
+
+        // Initialize repository
+        initialize_repo().unwrap();
+
+        temp_dir
+    }
+
+    fn cleanup_test_repo(test_dir: PathBuf) {
+        if test_dir.exists() {
+            env::set_current_dir(env::temp_dir().parent().unwrap()).unwrap();
+            fs::remove_dir_all(test_dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_make_snapshot_single_file() {
+        let test_dir = setup_test_repo();
+
+        // Create a test file
+        fs::write("test.txt", "Hello, World!").unwrap();
+
+        // Create snapshot
+        let tree_hash = make_snapshot(Path::new(".")).unwrap();
+
+        // Verify hash is 40 characters
+        assert_eq!(tree_hash.len(), 40);
+        assert!(tree_hash.chars().all(|c| c.is_ascii_hexdigit()));
+
+        // Read back the tree object
+        let tree_object = read_object(&tree_hash).unwrap();
+        assert_eq!(tree_object.obj_type, ObjectType::Tree);
+
+        // Tree content should contain file entry
+        let content = String::from_utf8_lossy(&tree_object.content);
+        assert!(content.contains("100644 test.txt"));
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_make_snapshot_multiple_files() {
+        let test_dir = setup_test_repo();
+
+        // Create multiple test files
+        fs::write("file1.txt", "Content 1").unwrap();
+        fs::write("file2.txt", "Content 2").unwrap();
+        fs::write("another.txt", "Another content").unwrap();
+
+        // Create snapshot
+        let tree_hash = make_snapshot(Path::new(".")).unwrap();
+
+        // Read back the tree object
+        let tree_object = read_object(&tree_hash).unwrap();
+        assert_eq!(tree_object.obj_type, ObjectType::Tree);
+
+        let content = String::from_utf8_lossy(&tree_object.content);
+
+        // Should contain all files, sorted lexicographically
+        assert!(content.contains("100644 another.txt"));
+        assert!(content.contains("100644 file1.txt"));
+        assert!(content.contains("100644 file2.txt"));
+
+        // Check that entries are in sorted order by parsing the tree format
+        let mut pos = 0;
+        let mut entries = Vec::new();
+        while pos < tree_object.content.len() {
+            // Find the null byte
+            if let Some(null_pos) = tree_object.content[pos..].iter().position(|&b| b == 0) {
+                let entry_start = pos;
+                let name_end = pos + null_pos;
+                let hash_start = name_end + 1;
+                let hash_end = hash_start + 20;
+
+                if hash_end <= tree_object.content.len() {
+                    let entry_str = String::from_utf8_lossy(&tree_object.content[entry_start..name_end]);
+                    entries.push(entry_str.to_string());
+                    pos = hash_end;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        assert_eq!(entries.len(), 3);
+        assert!(entries[0].starts_with("100644 another.txt"));
+        assert!(entries[1].starts_with("100644 file1.txt"));
+        assert!(entries[2].starts_with("100644 file2.txt"));
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_make_snapshot_with_subdirectory() {
+        let test_dir = setup_test_repo();
+
+        // Create directory structure
+        fs::create_dir("subdir").unwrap();
+        fs::write("subdir/nested.txt", "Nested content").unwrap();
+        fs::write("root.txt", "Root content").unwrap();
+
+        // Create snapshot
+        let tree_hash = make_snapshot(Path::new(".")).unwrap();
+
+        // Read back the tree object
+        let tree_object = read_object(&tree_hash).unwrap();
+        assert_eq!(tree_object.obj_type, ObjectType::Tree);
+
+        let content = String::from_utf8_lossy(&tree_object.content);
+
+        // Should contain both file and directory
+        assert!(content.contains("100644 root.txt"));
+        assert!(content.contains("40000 subdir"));
+
+        cleanup_test_repo(test_dir);
+    }
+
+    #[test]
+    fn test_make_snapshot_empty_directory() {
+        let test_dir = setup_test_repo();
+
+        // Create snapshot of empty directory
+        let tree_hash = make_snapshot(Path::new(".")).unwrap();
+
+        // Read back the tree object
+        let tree_object = read_object(&tree_hash).unwrap();
+        assert_eq!(tree_object.obj_type, ObjectType::Tree);
+
+        // Should be empty (only contains .crust which is ignored)
+        assert!(tree_object.content.is_empty());
+
+        cleanup_test_repo(test_dir);
+    }
+}
