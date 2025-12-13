@@ -10,6 +10,7 @@ use crate::repository::initialize_repo;
 use crate::plumbing::objects::{store_object, read_object, ObjectType};
 use crate::plumbing::trees::make_snapshot;
 use crate::plumbing::commits::{create_commit, update_ref, get_current_commit};
+use crate::plumbing::checkout::restore_snapshot;
 
 /// Crust - A minimal Git plumbing clone in Rust
 #[derive(Parser)]
@@ -41,6 +42,11 @@ enum Commands {
         /// Commit message
         #[arg(short, long)]
         message: String,
+    },
+    /// Restore a tree or commit snapshot to the working directory
+    Checkout {
+        /// Hash of tree or commit to restore
+        hash: String,
     },
 }
 
@@ -97,6 +103,10 @@ fn main() -> Result<(), CrustError> {
             update_ref(&current_ref, &commit_hash, Path::new("."))?;
 
             println!("{}", commit_hash);
+        }
+        Commands::Checkout { hash } => {
+            restore_snapshot(&hash, Path::new("."))?;
+            println!("Restored snapshot {}", &hash[..8]);
         }
     }
 
@@ -230,5 +240,35 @@ mod integration_tests {
         let commit_content = cat_result.unwrap();
         assert!(commit_content.contains("parent"));
         assert!(commit_content.contains("Second commit"));
+    }
+
+    #[test]
+    fn test_checkout_workflow() {
+        let test_dir = setup_integration_test();
+
+        // Initialize repository
+        run_crust_command(&test_dir, &["init"]).unwrap();
+
+        // Create files and commit
+        fs::write(test_dir.path().join("original.txt"), "Original content").unwrap();
+        fs::create_dir(test_dir.path().join("subdir")).unwrap();
+        fs::write(test_dir.path().join("subdir").join("nested.txt"), "Nested content").unwrap();
+
+        let commit_result = run_crust_command(&test_dir, &["commit", "--message", "Initial commit"]);
+        assert!(commit_result.is_ok());
+        let commit_hash = commit_result.unwrap();
+
+        // Modify files
+        fs::write(test_dir.path().join("original.txt"), "Modified content").unwrap();
+        fs::remove_file(test_dir.path().join("subdir").join("nested.txt")).unwrap();
+
+        // Checkout the commit
+        let checkout_result = run_crust_command(&test_dir, &["checkout", &commit_hash]);
+        assert!(checkout_result.is_ok());
+
+        // Verify files were restored
+        assert_eq!(fs::read_to_string(test_dir.path().join("original.txt")).unwrap(), "Original content");
+        assert!(test_dir.path().join("subdir").join("nested.txt").exists());
+        assert_eq!(fs::read_to_string(test_dir.path().join("subdir").join("nested.txt")).unwrap(), "Nested content");
     }
 }
