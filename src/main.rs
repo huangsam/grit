@@ -9,7 +9,7 @@ use crate::error::CrustError;
 use crate::repository::initialize_repo;
 use crate::plumbing::objects::{store_object, read_object, ObjectType};
 use crate::plumbing::trees::make_snapshot;
-use crate::plumbing::commits::{create_commit, update_ref};
+use crate::plumbing::commits::{create_commit, update_ref, get_current_commit};
 
 /// Crust - A minimal Git plumbing clone in Rust
 #[derive(Parser)]
@@ -76,12 +76,18 @@ fn main() -> Result<(), CrustError> {
             println!("{}", hash);
         }
         Commands::Commit { message } => {
-            // For now, assume we have a tree from write-tree
-            // In a real implementation, we'd track the current tree
-            let tree_hash = "dummy_tree_hash"; // TODO: Get actual tree hash
-            let parent_hash = None; // TODO: Get parent from HEAD
-            let commit_hash = create_commit(tree_hash, parent_hash, &message)?;
+            // Get the current tree snapshot of the src directory
+            let tree_hash = make_snapshot(Path::new("src"))?;
+
+            // For now, no parent (initial commit)
+            let parent_hash = None;
+
+            // Create the commit
+            let commit_hash = create_commit(&tree_hash, parent_hash, &message)?;
+
+            // Update HEAD to point to the new commit
             update_ref("HEAD", &commit_hash)?;
+
             println!("{}", commit_hash);
         }
     }

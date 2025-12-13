@@ -55,8 +55,8 @@ pub fn make_snapshot(path: &Path) -> Result<String, CrustError> {
         let entry_path = entry.path();
         let file_name = entry.file_name().to_string_lossy().to_string();
 
-        // Ignore .crust directory
-        if file_name == ".crust" {
+        // Ignore .crust directory and build directories
+        if file_name == ".crust" || file_name == "target" || file_name == ".git" {
             continue;
         }
 
