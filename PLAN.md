@@ -71,21 +71,23 @@ crust/
 
 #### Public fn store_object
 - **Signature:** store_object(content: &[u8], obj_type: ObjectType) -> Result<String, CrustError>
-- **Logic:**
-  - Construct Git Header: Concatenate type string, space, size, and single null byte (\0).
-  - Calculate Hash: Calculate SHA-1 hash of (Header + Content bytes).
-  - Compress: Compress (Header + Content bytes) using zlib (flate2).
-  - Storage: Write compressed bytes to file path '.git/objects/<hash_prefix>/<hash_suffix>'.
-  - Return: SHA-1 hash string.
+- **Purpose:** The core function to read any content, calculate its hash, compress it, and save it to the .git/objects directory.
+- **Steps:**
+  - **Step 1: Header Construction** - Prepend the content with the exact Git header: `<ASCII type> <ASCII size>\0`. Example: `b"blob 12\0"`.
+  - **Step 2: Hashing Input** - The SHA-1 hash must be calculated over the concatenated bytes of the Header + Content.
+  - **Step 3: Compression** - Use the flate2 crate to compress the Header + Content bytes using Zlib.
+  - **Step 4: Storage Path** - Use the calculated 40-character hex hash. The path must be: `.git/objects/<first two characters of hash>/<remaining 38 characters>`.
+- **Validation Requirement:** The final hash must match the output of `git hash-object -w --stdin` when fed the same data.
 
 #### Public fn read_object
 - **Signature:** read_object(hash: &str) -> Result<Object, CrustError>
-- **Logic:**
-  - Read File: Locate and read compressed bytes from object file path.
-  - Decompress: Decompress bytes using zlib (flate2).
-  - Parse Header: Locate the first null byte (\0) in the decompressed data to separate the header from the content.
-  - Extract Type: Parse the header to determine ObjectType.
-  - Return: Full 'Object' struct.
+- **Purpose:** The inverse of store_object. Reads a hash, decompresses the data, and extracts the content.
+- **Steps:**
+  - **Step 1: Retrieval** - Read the compressed object file from the derived path (e.g., `.git/objects/ab/123...`). Handle `ObjectNotFound` error if the file doesn't exist.
+  - **Step 2: Decompression** - Use the flate2 crate to decompress the file contents using Zlib.
+  - **Step 3: Header Parsing** - Find the first null byte (0u8) in the decompressed byte stream. This separates the header (type/size) from the content.
+  - **Step 4: Output** - Return a populated `Object` struct containing the extracted `ObjectType` and the raw `Vec<u8>` content.
+- **Validation Requirement:** Ensure the header parsing correctly handles `ObjectType::Commit` and `ObjectType::Tree` (text formats) as well as `ObjectType::Blob` (potentially binary).
 
 ### Tree Objects (src/plumbing/trees.rs)
 **Goal:** Implement Merkle Tree logic to capture directory structure.
@@ -96,14 +98,14 @@ crust/
 
 #### Public fn make_snapshot
 - **Signature:** make_snapshot(path: &Path) -> Result<String, CrustError>
-- **Logic:**
-  - Recursive Walk: Iterate through the given directory path.
-  - Blob/Tree Handling:
-    - For files, call 'store_object' (type Blob).
-    - For directories, recursively call 'make_snapshot'.
-  - Format Tree Data: Assemble all TreeEntry data into a single byte array, sorted by name. Format for each entry is: <mode> <name>\0<20_raw_byte_hash>.
-  - Store: Call 'store_object' on the formatted byte array (type Tree).
-  - Return: The resulting Tree hash string.
+- **Purpose:** Recursively walk the directory, serialize the structure, and store it as a Tree object (the Merkle Tree node).
+- **Steps:**
+  - **Step 1: Directory Traversal** - Use `std::fs` to recursively traverse the directory. Ignore the `.git` directory.
+  - **Step 2: Entry Handling** - For files: Call `store_object` to get the Blob hash. For directories: Recursively call `make_snapshot` to get the Tree hash.
+  - **Step 3: Tree Entry Format** - Each entry in the resulting Tree object's content must be: `<mode> <name>\0<20 raw byte hash>`. The hash must be the 20 raw bytes, NOT the 40-character hex string.
+  - **Step 4: Sorting** - Tree entries must be sorted lexicographically by name before serialization. This is critical for matching Git's hash.
+  - **Step 5: Storage** - Concatenate all serialized entries, call `store_object` with `ObjectType::Tree`.
+- **Validation Requirement:** The final Tree hash must exactly match the hash produced by official `git write-tree` for the same directory state.
 
 ### Commit Objects and Refs (src/plumbing/commits.rs)
 **Goal:** Link snapshots into a DAG and manage the repository pointer (HEAD).
