@@ -32,7 +32,7 @@ crust/
 ### File Responsibilities
 - **main.rs**: The main entry point. Contains the CLI parsing (clap) and calls the high-level logic (the "Porcelain" wrapper).
 - **error.rs**: Defines the central CrustError enum for all error handling.
-- **repository.rs**: Handles simple filesystem operations like initialize_repo and checking for the .git directory.
+- **repository.rs**: Handles simple filesystem operations like initialize_repo and checking for the .crust directory.
 - **plumbing/objects.rs**: Contains the core CAS logic: store_object and read_object.
 - **plumbing/trees.rs**: Contains the recursive snapshot logic: make_snapshot.
 - **plumbing/commits.rs**: Contains the history logic: create_commit and update_ref.
@@ -58,7 +58,7 @@ crust/
 ### Repository Management (src/repository.rs)
 - **Public fn initialize_repo**
   - **Signature:** initialize_repo() -> Result<(), CrustError>
-  - **Logic:** Create the basic '.git/' directory structure ('objects', 'refs', 'HEAD', etc.).
+  - **Logic:** Create the basic '.crust/' directory structure ('objects', 'refs', 'HEAD', etc.).
 
 ## Plumbing Implementation
 
@@ -71,19 +71,19 @@ crust/
 
 #### Public fn store_object
 - **Signature:** store_object(content: &[u8], obj_type: ObjectType) -> Result<String, CrustError>
-- **Purpose:** The core function to read any content, calculate its hash, compress it, and save it to the .git/objects directory.
+- **Purpose:** The core function to read any content, calculate its hash, compress it, and save it to the .crust/objects directory.
 - **Steps:**
   - **Step 1: Header Construction** - Prepend the content with the exact Git header: `<ASCII type> <ASCII size>\0`. Example: `b"blob 12\0"`.
   - **Step 2: Hashing Input** - The SHA-1 hash must be calculated over the concatenated bytes of the Header + Content.
   - **Step 3: Compression** - Use the flate2 crate to compress the Header + Content bytes using Zlib.
-  - **Step 4: Storage Path** - Use the calculated 40-character hex hash. The path must be: `.git/objects/<first two characters of hash>/<remaining 38 characters>`.
+  - **Step 4: Storage Path** - Use the calculated 40-character hex hash. The path must be: `.crust/objects/<first two characters of hash>/<remaining 38 characters>`.
 - **Validation Requirement:** The final hash must match the output of `git hash-object -w --stdin` when fed the same data.
 
 #### Public fn read_object
 - **Signature:** read_object(hash: &str) -> Result<Object, CrustError>
 - **Purpose:** The inverse of store_object. Reads a hash, decompresses the data, and extracts the content.
 - **Steps:**
-  - **Step 1: Retrieval** - Read the compressed object file from the derived path (e.g., `.git/objects/ab/123...`). Handle `ObjectNotFound` error if the file doesn't exist.
+  - **Step 1: Retrieval** - Read the compressed object file from the derived path (e.g., `.crust/objects/ab/123...`). Handle `ObjectNotFound` error if the file doesn't exist.
   - **Step 2: Decompression** - Use the flate2 crate to decompress the file contents using Zlib.
   - **Step 3: Header Parsing** - Find the first null byte (0u8) in the decompressed byte stream. This separates the header (type/size) from the content.
   - **Step 4: Output** - Return a populated `Object` struct containing the extracted `ObjectType` and the raw `Vec<u8>` content.
@@ -100,7 +100,7 @@ crust/
 - **Signature:** make_snapshot(path: &Path) -> Result<String, CrustError>
 - **Purpose:** Recursively walk the directory, serialize the structure, and store it as a Tree object (the Merkle Tree node).
 - **Steps:**
-  - **Step 1: Directory Traversal** - Use `std::fs` to recursively traverse the directory. Ignore the `.git` directory.
+  - **Step 1: Directory Traversal** - Use `std::fs` to recursively traverse the directory. Ignore the `.crust` directory.
   - **Step 2: Entry Handling** - For files: Call `store_object` to get the Blob hash. For directories: Recursively call `make_snapshot` to get the Tree hash.
   - **Step 3: Tree Entry Format** - Each entry in the resulting Tree object's content must be: `<mode> <name>\0<20 raw byte hash>`. The hash must be the 20 raw bytes, NOT the 40-character hex string.
   - **Step 4: Sorting** - Tree entries must be sorted lexicographically by name before serialization. This is critical for matching Git's hash.
@@ -119,7 +119,7 @@ crust/
 
 #### Public fn update_ref
 - **Signature:** update_ref(ref_name: &str, hash: &str) -> Result<(), CrustError>
-- **Logic:** Write the new hash string into the designated reference file (e.g., '.git/HEAD').
+- **Logic:** Write the new hash string into the designated reference file (e.g., '.crust/HEAD').
 
 ## CLI Integration (src/main.rs)
 **Goal:** Integrate plumbing functions into a CLI using 'clap'.

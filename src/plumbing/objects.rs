@@ -1,5 +1,10 @@
 use std::path::Path;
 use crate::error::CrustError;
+use sha1::{Digest, Sha1};
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
+use std::io::Write;
+use std::fs;
 
 /// Represents the type of Git object stored in the repository.
 /// Git objects come in three fundamental types that form the basis of the version control system.
@@ -39,7 +44,7 @@ pub struct Object {
 /// 1. Constructing a Git header with object type and size
 /// 2. Computing SHA-1 hash of header + content
 /// 3. Compressing the data with zlib
-/// 4. Storing in .git/objects/xx/yyyy... where xx are first 2 hex chars of hash
+/// 4. Storing in .crust/objects/xx/yyyy... where xx are first 2 hex chars of hash
 ///
 /// # Arguments
 /// * `content` - The raw bytes to store in the object
@@ -52,8 +57,37 @@ pub struct Object {
 /// # Validation
 /// The returned hash should match `git hash-object -w --stdin` for the same input.
 pub fn store_object(content: &[u8], obj_type: ObjectType) -> Result<String, CrustError> {
-    // TODO: Implement
-    Ok(String::new())
+    // Step 1: Header Construction
+    let type_str = match obj_type {
+        ObjectType::Blob => "blob",
+        ObjectType::Tree => "tree",
+        ObjectType::Commit => "commit",
+    };
+    let header = format!("{} {}\0", type_str, content.len());
+    let header_bytes = header.as_bytes();
+
+    // Step 2: Hashing Input
+    let mut hasher = Sha1::new();
+    hasher.update(header_bytes);
+    hasher.update(content);
+    let hash_bytes = hasher.finalize();
+    let hash_hex = hex::encode(hash_bytes);
+
+    // Step 3: Compression
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(header_bytes)?;
+    encoder.write_all(content)?;
+    let compressed_data = encoder.finish()?;
+
+    // Step 4: Storage Path
+    let (prefix, suffix) = hash_hex.split_at(2);
+    let object_dir = Path::new(".crust").join("objects").join(prefix);
+    fs::create_dir_all(&object_dir)?;
+
+    let object_path = object_dir.join(suffix);
+    fs::write(object_path, compressed_data)?;
+
+    Ok(hash_hex)
 }
 
 /// Retrieves an object from the Git object database by its hash.
