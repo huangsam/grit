@@ -241,4 +241,129 @@ mod tests {
         assert_eq!(object.obj_type, ObjectType::Blob);
         assert_eq!(object.content, content);
     }
+
+    // Property-based tests
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn test_store_read_blob_roundtrip(content in prop::collection::vec(any::<u8>(), 0..10000)) {
+            let test_dir = setup_test_repo();
+
+            // Store the content
+            let hash = store_object(&content, ObjectType::Blob, test_dir.path())?;
+
+            // Read it back
+            let read_obj = read_object(&hash, test_dir.path())?;
+
+            // Verify roundtrip
+            prop_assert_eq!(read_obj.obj_type, ObjectType::Blob);
+            prop_assert_eq!(read_obj.content, content);
+        }
+
+        #[test]
+        fn test_store_read_tree_roundtrip(
+            entries in prop::collection::vec(
+                (prop::string::string_regex("[a-zA-Z0-9_.-]{1,10}").unwrap()
+                    .prop_filter("Exclude problematic filenames", |s| s != "." && s != ".." && !s.contains('/') && !s.starts_with('.')),
+                 prop::collection::vec(any::<u8>(), 0..100)),
+                0..5
+            )
+        ) {
+            let test_dir = setup_test_repo();
+
+            // Create files for the tree
+            for (filename, content) in &entries {
+                std::fs::write(test_dir.path().join(filename), content)?;
+            }
+
+            // Create tree snapshot
+            let tree_hash = crate::plumbing::trees::make_snapshot(test_dir.path(), test_dir.path())?;
+
+            // Read tree object
+            let tree_obj = read_object(&tree_hash, test_dir.path())?;
+            prop_assert_eq!(tree_obj.obj_type, ObjectType::Tree);
+
+            // Parse tree entries
+            let parsed_entries = crate::plumbing::checkout::parse_tree_entries(&tree_obj.content)?;
+            prop_assert_eq!(parsed_entries.len(), entries.len());
+        }
+    }
+
+    #[test]
+    fn test_store_large_file() {
+        let test_dir = setup_test_repo();
+
+        // Create a 10MB file
+        let large_content = vec![42u8; 10 * 1024 * 1024];
+        let hash = store_object(&large_content, ObjectType::Blob, test_dir.path()).unwrap();
+
+        // Verify it can be read back
+        let read_obj = read_object(&hash, test_dir.path()).unwrap();
+        assert_eq!(read_obj.obj_type, ObjectType::Blob);
+        assert_eq!(read_obj.content.len(), large_content.len());
+        assert_eq!(read_obj.content, large_content);
+    }
+
+    #[test]
+    fn test_unicode_filenames() {
+        let test_dir = setup_test_repo();
+
+        // Create files with Unicode names
+        let unicode_files = vec![
+            ("🚀_rocket.txt", "Space content"),
+            ("café.txt", "Coffee content"),
+            ("тест.txt", "Test content"),
+            ("文件.txt", "File content"),
+        ];
+
+        for (filename, content) in &unicode_files {
+            std::fs::write(test_dir.path().join(filename), content).unwrap();
+        }
+
+        // Create tree snapshot
+        let tree_hash = crate::plumbing::trees::make_snapshot(test_dir.path(), test_dir.path()).unwrap();
+
+        // Read and verify tree contains all files
+        let tree_obj = read_object(&tree_hash, test_dir.path()).unwrap();
+        assert_eq!(tree_obj.obj_type, ObjectType::Tree);
+
+        let entries = crate::plumbing::checkout::parse_tree_entries(&tree_obj.content).unwrap();
+        assert_eq!(entries.len(), unicode_files.len());
+
+        // Verify filenames are preserved
+        let entry_names: std::collections::HashSet<_> = entries.iter().map(|e| e.name.as_str()).collect();
+        let expected_names: std::collections::HashSet<_> = unicode_files.iter().map(|(name, _)| *name).collect();
+        assert_eq!(entry_names, expected_names);
+    }
+
+    #[test]
+    fn test_corrupted_object_handling() {
+        let test_dir = setup_test_repo();
+
+        // Create a valid object first
+        let content = b"Hello World";
+        let hash = store_object(content, ObjectType::Blob, test_dir.path()).unwrap();
+
+        // Manually corrupt the object file
+        let object_path = test_dir.path().join(".crust").join("objects")
+            .join(&hash[..2]).join(&hash[2..]);
+
+        let mut corrupted_content = std::fs::read(&object_path).unwrap();
+        if corrupted_content.len() > 10 {
+            corrupted_content[10] ^= 0xFF; // Flip some bits
+        }
+        std::fs::write(&object_path, corrupted_content).unwrap();
+
+        // Attempt to read should fail gracefully
+        let result = read_object(&hash, test_dir.path());
+        assert!(result.is_err());
+
+        // Should be an Io error due to corrupted compression
+        match result {
+            Err(crate::error::CrustError::Io(_)) => {},
+            Err(e) => panic!("Expected Io error, got: {:?}", e),
+            _ => panic!("Expected Io error"),
+        }
+    }
 }

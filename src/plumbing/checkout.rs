@@ -103,14 +103,14 @@ fn restore_tree(tree_hash: &str, repo_root: &Path, current_path: &Path) -> Resul
 
 /// Represents a tree entry parsed from tree object content
 #[derive(Debug)]
-struct TreeEntry {
-    mode: String,
-    name: String,
-    hash: [u8; 20],
+pub struct TreeEntry {
+    pub mode: String,
+    pub name: String,
+    pub hash: [u8; 20],
 }
 
 /// Parses tree entries from raw tree content
-fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, CrustError> {
+pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, CrustError> {
     let mut entries = Vec::new();
     let mut pos = 0;
 
@@ -183,5 +183,40 @@ mod tests {
         assert_eq!(fs::read_to_string(test_dir.path().join("hello.txt")).unwrap(), "Hello World");
         assert!(test_dir.path().join("subdir").join("nested.txt").exists());
         assert_eq!(fs::read_to_string(test_dir.path().join("subdir").join("nested.txt")).unwrap(), "Nested content");
+    }
+
+    // Property-based tests
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn test_parse_tree_entries_with_random_data(
+            entries in prop::collection::vec(
+                (prop::string::string_regex(r"100644|100755|40000").unwrap(), // Valid modes
+                 prop::string::string_regex("[a-zA-Z0-9_.-]{1,50}").unwrap()
+                    .prop_filter("Exclude problematic filenames", |s| s != ".crust" && s != "target" && !s.starts_with('.')),
+                 prop::array::uniform20(any::<u8>())), // 20-byte hash
+                1..5
+            )
+        ) {
+            // Build tree content from random entries
+            let mut content = Vec::new();
+            for (mode, name, hash) in &entries {
+                content.extend_from_slice(format!("{} {}\0", mode, name).as_bytes());
+                content.extend_from_slice(hash);
+            }
+
+            // Parse the tree entries
+            let parsed_entries = parse_tree_entries(&content)?;
+            prop_assert_eq!(parsed_entries.len(), entries.len());
+
+            // Verify each entry matches
+            for (i, (expected_mode, expected_name, expected_hash)) in entries.iter().enumerate() {
+                let actual = &parsed_entries[i];
+                prop_assert_eq!(&actual.mode, expected_mode);
+                prop_assert_eq!(&actual.name, expected_name);
+                prop_assert_eq!(&actual.hash, expected_hash);
+            }
+        }
     }
 }

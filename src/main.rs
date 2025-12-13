@@ -5,6 +5,7 @@ mod plumbing;
 use clap::{Parser, Subcommand};
 use std::path::Path;
 use std::fs;
+use std::io::Write;
 use crate::error::CrustError;
 use crate::repository::initialize_repo;
 use crate::plumbing::objects::{store_object, read_object, ObjectType};
@@ -68,8 +69,8 @@ fn main() -> Result<(), CrustError> {
             let object = read_object(&hash, Path::new("."))?;
             match object.obj_type {
                 ObjectType::Blob => {
-                    // For blobs, print the content directly
-                    print!("{}", String::from_utf8_lossy(&object.content));
+                    // For blobs, output the raw content
+                    std::io::stdout().write_all(&object.content)?;
                 }
                 ObjectType::Tree | ObjectType::Commit => {
                     // For trees and commits, print as UTF-8 text
@@ -142,7 +143,12 @@ mod integration_tests {
             .map_err(|e| format!("Failed to run command: {}", e))?;
 
         if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+            // For cat-file command, don't trim to preserve exact content
+            if args.get(0) == Some(&"cat-file") {
+                Ok(String::from_utf8_lossy(&output.stdout).to_string())
+            } else {
+                Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+            }
         } else {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -270,5 +276,73 @@ mod integration_tests {
         assert_eq!(fs::read_to_string(test_dir.path().join("original.txt")).unwrap(), "Original content");
         assert!(test_dir.path().join("subdir").join("nested.txt").exists());
         assert_eq!(fs::read_to_string(test_dir.path().join("subdir").join("nested.txt")).unwrap(), "Nested content");
+    }
+
+    #[test]
+    fn test_git_compatibility() {
+        let test_dir = setup_integration_test();
+
+        // Initialize crust repository
+        run_crust_command(&test_dir, &["init"]).unwrap();
+
+        // Create test files with various content types
+        let test_files = vec![
+            ("empty.txt", ""),
+            ("simple.txt", "Hello World"),
+            ("unicode.txt", "🚀 Hello 世界 🌍"),
+            ("multiline.txt", "Line 1\nLine 2\nLine 3\n"),
+        ];
+
+        for (filename, content) in test_files {
+            fs::write(test_dir.path().join(filename), content).unwrap();
+
+            // Get crust hash
+            let crust_hash = run_crust_command(&test_dir, &["hash-object", filename]).unwrap();
+
+            // Get git hash for comparison
+            let git_output = Command::new("git")
+                .args(&["hash-object", filename])
+                .current_dir(test_dir.path())
+                .output()
+                .expect("git command failed");
+
+            assert!(git_output.status.success(), "git hash-object failed");
+            let git_hash = String::from_utf8_lossy(&git_output.stdout).trim().to_string();
+
+            // Compare hashes
+            assert_eq!(crust_hash, git_hash,
+                "Hash mismatch for file {}: crust={}, git={}", filename, crust_hash, git_hash);
+
+            // Verify we can read the object back
+            let cat_result = run_crust_command(&test_dir, &["cat-file", &crust_hash]);
+            assert!(cat_result.is_ok(), "Failed to read object {}", crust_hash);
+            let read_content = cat_result.unwrap();
+
+            // Compare content
+            assert_eq!(read_content, content);
+        }
+
+        // Test binary file separately
+        let binary_content = vec![0, 1, 255, 128];
+        fs::write(test_dir.path().join("binary.dat"), &binary_content).unwrap();
+
+        let crust_hash = run_crust_command(&test_dir, &["hash-object", "binary.dat"]).unwrap();
+
+        let git_output = Command::new("git")
+            .args(&["hash-object", "binary.dat"])
+            .current_dir(test_dir.path())
+            .output()
+            .expect("git command failed");
+
+        assert!(git_output.status.success(), "git hash-object failed for binary file");
+        let git_hash = String::from_utf8_lossy(&git_output.stdout).trim().to_string();
+
+        assert_eq!(crust_hash, git_hash,
+            "Hash mismatch for binary file: crust={}, git={}", crust_hash, git_hash);
+
+        // For binary content, compare by reading the object directly instead of through cat-file
+        let read_obj = crate::plumbing::objects::read_object(&crust_hash, test_dir.path()).unwrap();
+        assert_eq!(read_obj.obj_type, crate::plumbing::objects::ObjectType::Blob);
+        assert_eq!(read_obj.content, binary_content);
     }
 }

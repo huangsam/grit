@@ -137,6 +137,47 @@ mod tests {
         temp_dir
     }
 
+    // Property-based tests
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn test_create_commit_with_various_messages(
+            message in prop::string::string_regex(r"[^\x00]*").unwrap() // Any string except null bytes
+                .prop_filter("Non-empty message", |s| !s.is_empty())
+        ) {
+            let test_dir = setup_test_repo();
+            let tree_hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+            let commit_hash = create_commit(tree_hash, None, &message, test_dir.path())?;
+
+            // Verify commit was created and contains the message
+            let commit_object = read_object(&commit_hash, test_dir.path())?;
+            prop_assert_eq!(commit_object.obj_type, ObjectType::Commit);
+
+            let content = String::from_utf8_lossy(&commit_object.content);
+            let expected_message = format!("\n\n{}\n", message);
+            prop_assert!(content.contains(&expected_message));
+        }
+
+        #[test]
+        fn test_update_ref_with_valid_names(
+            ref_name in prop::string::string_regex(r"refs/(heads|tags)/[a-zA-Z0-9_.-]{1,100}").unwrap()
+        ) {
+            let test_dir = setup_test_repo();
+            let hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+            update_ref(&ref_name, hash, test_dir.path())?;
+
+            // Verify ref was created
+            let ref_path = test_dir.path().join(".crust").join(ref_name);
+            prop_assert!(ref_path.exists());
+
+            let ref_content = fs::read_to_string(ref_path)?;
+            prop_assert_eq!(ref_content.trim(), hash);
+        }
+    }
+
     #[test]
     fn test_create_commit_initial() {
         let test_dir = setup_test_repo();

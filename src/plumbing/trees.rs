@@ -111,6 +111,7 @@ mod tests {
     use tempfile::TempDir;
     use crate::repository::initialize_repo;
     use crate::plumbing::objects::{read_object, ObjectType};
+    use std::fs;
 
     fn setup_test_repo() -> TempDir {
         let temp_dir = TempDir::new().unwrap();
@@ -119,6 +120,44 @@ mod tests {
         initialize_repo(temp_dir.path()).unwrap();
 
         temp_dir
+    }
+
+    // Property-based tests
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn test_make_snapshot_with_random_files(
+            files in prop::collection::vec(
+                (prop::string::string_regex("[a-zA-Z0-9_.-]{1,50}").unwrap()
+                    .prop_filter("Exclude problematic filenames", |s| s != ".crust" && s != "target" && !s.starts_with('.')),
+                 prop::collection::vec(any::<u8>(), 0..1000)),
+                1..10
+            )
+        ) {
+            let test_dir = setup_test_repo();
+
+            // Create the random files
+            for (filename, content) in &files {
+                fs::write(test_dir.path().join(filename), content)?;
+            }
+
+            // Create tree snapshot
+            let tree_hash = make_snapshot(test_dir.path(), test_dir.path())?;
+
+            // Verify tree was created
+            let tree_object = read_object(&tree_hash, test_dir.path())?;
+            prop_assert_eq!(tree_object.obj_type, ObjectType::Tree);
+
+            // Parse tree entries
+            let entries = crate::plumbing::checkout::parse_tree_entries(&tree_object.content)?;
+            prop_assert_eq!(entries.len(), files.len());
+
+            // Verify all files are in the tree
+            let entry_names: std::collections::HashSet<_> = entries.iter().map(|e| e.name.as_str()).collect();
+            let expected_names: std::collections::HashSet<_> = files.iter().map(|(name, _)| name.as_str()).collect();
+            prop_assert_eq!(entry_names, expected_names);
+        }
     }
 
     #[test]
