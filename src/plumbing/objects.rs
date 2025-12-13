@@ -50,6 +50,7 @@ pub struct Object {
 /// # Arguments
 /// * `content` - The raw bytes to store in the object
 /// * `obj_type` - The type of object being stored
+/// * `repo_root` - The root directory of the repository
 ///
 /// # Returns
 /// * `Ok(hash)` - The 40-character hex SHA-1 hash of the stored object
@@ -57,7 +58,7 @@ pub struct Object {
 ///
 /// # Validation
 /// The returned hash should match `git hash-object -w --stdin` for the same input.
-pub fn store_object(content: &[u8], obj_type: ObjectType) -> Result<String, CrustError> {
+pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> Result<String, CrustError> {
     // Step 1: Header Construction
     let type_str = match obj_type {
         ObjectType::Blob => "blob",
@@ -82,7 +83,7 @@ pub fn store_object(content: &[u8], obj_type: ObjectType) -> Result<String, Crus
 
     // Step 4: Storage Path
     let (prefix, suffix) = hash_hex.split_at(2);
-    let object_dir = Path::new(".crust").join("objects").join(prefix);
+    let object_dir = repo_root.join(".crust").join("objects").join(prefix);
     fs::create_dir_all(&object_dir)?;
 
     let object_path = object_dir.join(suffix);
@@ -102,6 +103,7 @@ pub fn store_object(content: &[u8], obj_type: ObjectType) -> Result<String, Crus
 ///
 /// # Arguments
 /// * `hash` - The 40-character hex SHA-1 hash of the object to retrieve
+/// * `repo_root` - The root directory of the repository
 ///
 /// # Returns
 /// * `Ok(Object)` - The retrieved object with its type and content
@@ -110,10 +112,10 @@ pub fn store_object(content: &[u8], obj_type: ObjectType) -> Result<String, Crus
 /// # Errors
 /// * `ObjectNotFound` - If no object with the given hash exists
 /// * `CorruptObject` - If the stored data is malformed or decompression fails
-pub fn read_object(hash: &str) -> Result<Object, CrustError> {
+pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, CrustError> {
     // Step 1: Retrieval
     let (prefix, suffix) = hash.split_at(2);
-    let object_path = Path::new(".crust").join("objects").join(prefix).join(suffix);
+    let object_path = repo_root.join(".crust").join("objects").join(prefix).join(suffix);
 
     if !object_path.exists() {
         return Err(CrustError::ObjectNotFound(hash.to_string()));
@@ -158,35 +160,16 @@ pub fn read_object(hash: &str) -> Result<Object, CrustError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
-    use std::fs;
-    use std::path::PathBuf;
+    use tempfile::TempDir;
     use crate::repository::initialize_repo;
 
-    fn setup_test_repo() -> PathBuf {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let temp_dir = env::temp_dir().join(format!("crust_test_objects_{}", timestamp));
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).unwrap();
-        }
-        fs::create_dir_all(&temp_dir).unwrap();
-        env::set_current_dir(&temp_dir).unwrap();
+    fn setup_test_repo() -> TempDir {
+        let temp_dir = TempDir::new().unwrap();
 
         // Initialize repository
-        initialize_repo().unwrap();
+        initialize_repo(temp_dir.path()).unwrap();
 
         temp_dir
-    }
-
-    fn cleanup_test_repo(test_dir: PathBuf) {
-        if test_dir.exists() {
-            env::set_current_dir(env::temp_dir().parent().unwrap()).unwrap();
-            fs::remove_dir_all(test_dir).unwrap();
-        }
     }
 
     #[test]
@@ -194,18 +177,16 @@ mod tests {
         let test_dir = setup_test_repo();
 
         let content = b"Hello, World!";
-        let hash = store_object(content, ObjectType::Blob).unwrap();
+        let hash = store_object(content, ObjectType::Blob, test_dir.path()).unwrap();
 
         // Verify hash is 40 characters
         assert_eq!(hash.len(), 40);
         assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
 
         // Read back the object
-        let object = read_object(&hash).unwrap();
+        let object = read_object(&hash, test_dir.path()).unwrap();
         assert_eq!(object.obj_type, ObjectType::Blob);
         assert_eq!(object.content, content);
-
-        cleanup_test_repo(test_dir);
     }
 
     #[test]
@@ -213,14 +194,12 @@ mod tests {
         let test_dir = setup_test_repo();
 
         let tree_content = b"100644 file.txt\x00\xaa\xbb\xcc\xdd\xee\xff\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc";
-        let hash = store_object(tree_content, ObjectType::Tree).unwrap();
+        let hash = store_object(tree_content, ObjectType::Tree, test_dir.path()).unwrap();
 
         // Read back the object
-        let object = read_object(&hash).unwrap();
+        let object = read_object(&hash, test_dir.path()).unwrap();
         assert_eq!(object.obj_type, ObjectType::Tree);
         assert_eq!(object.content, tree_content);
-
-        cleanup_test_repo(test_dir);
     }
 
     #[test]
@@ -228,21 +207,19 @@ mod tests {
         let test_dir = setup_test_repo();
 
         let commit_content = b"tree abc123\nauthor Test <test@example.com> 1234567890 +0000\n\nTest commit";
-        let hash = store_object(commit_content, ObjectType::Commit).unwrap();
+        let hash = store_object(commit_content, ObjectType::Commit, test_dir.path()).unwrap();
 
         // Read back the object
-        let object = read_object(&hash).unwrap();
+        let object = read_object(&hash, test_dir.path()).unwrap();
         assert_eq!(object.obj_type, ObjectType::Commit);
         assert_eq!(object.content, commit_content);
-
-        cleanup_test_repo(test_dir);
     }
 
     #[test]
     fn test_read_nonexistent_object() {
         let test_dir = setup_test_repo();
 
-        let result = read_object("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let result = read_object("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", test_dir.path());
         assert!(result.is_err());
 
         if let Err(CrustError::ObjectNotFound(hash)) = result {
@@ -250,8 +227,6 @@ mod tests {
         } else {
             panic!("Expected ObjectNotFound error");
         }
-
-        cleanup_test_repo(test_dir);
     }
 
     #[test]
@@ -259,13 +234,11 @@ mod tests {
         let test_dir = setup_test_repo();
 
         let content = b"";
-        let hash = store_object(content, ObjectType::Blob).unwrap();
+        let hash = store_object(content, ObjectType::Blob, test_dir.path()).unwrap();
 
         // Read back the object
-        let object = read_object(&hash).unwrap();
+        let object = read_object(&hash, test_dir.path()).unwrap();
         assert_eq!(object.obj_type, ObjectType::Blob);
         assert_eq!(object.content, content);
-
-        cleanup_test_repo(test_dir);
     }
 }

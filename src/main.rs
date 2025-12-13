@@ -49,17 +49,17 @@ fn main() -> Result<(), CrustError> {
 
     match cli.command {
         Commands::Init => {
-            initialize_repo()?;
+            initialize_repo(Path::new("."))?;
             println!("Initialized empty Crust repository");
         }
         Commands::HashObject { file } => {
             let path = Path::new(&file);
             let content = std::fs::read(path)?;
-            let hash = store_object(&content, ObjectType::Blob)?;
+            let hash = store_object(&content, ObjectType::Blob, Path::new("."))?;
             println!("{}", hash);
         }
         Commands::CatFile { hash } => {
-            let object = read_object(&hash)?;
+            let object = read_object(&hash, Path::new("."))?;
             match object.obj_type {
                 ObjectType::Blob => {
                     // For blobs, print the content directly
@@ -72,19 +72,19 @@ fn main() -> Result<(), CrustError> {
             }
         }
         Commands::WriteTree => {
-            let hash = make_snapshot(Path::new("."))?;
+            let hash = make_snapshot(Path::new("."), Path::new("."))?;
             println!("{}", hash);
         }
         Commands::Commit { message } => {
             // Get the current tree snapshot
-            let tree_hash = make_snapshot(Path::new("."))?;
+            let tree_hash = make_snapshot(Path::new("."), Path::new("."))?;
 
             // Get the parent commit from HEAD
-            let parent_hash = get_current_commit()?;
+            let parent_hash = get_current_commit(Path::new("."))?;
             let parent_hash = parent_hash.as_deref();
 
             // Create the commit
-            let commit_hash = create_commit(&tree_hash, parent_hash, &message)?;
+            let commit_hash = create_commit(&tree_hash, parent_hash, &message, Path::new("."))?;
 
             // Update the current branch or HEAD to point to the new commit
             let head_path = Path::new(".crust").join("HEAD");
@@ -94,7 +94,7 @@ fn main() -> Result<(), CrustError> {
             } else {
                 "HEAD".to_string()
             };
-            update_ref(&current_ref, &commit_hash)?;
+            update_ref(&current_ref, &commit_hash, Path::new("."))?;
 
             println!("{}", commit_hash);
         }
@@ -107,30 +107,14 @@ fn main() -> Result<(), CrustError> {
 mod integration_tests {
     use std::env;
     use std::fs;
-    use std::path::PathBuf;
     use std::process::Command;
+    use tempfile::TempDir;
 
-    fn setup_integration_test() -> PathBuf {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let temp_dir = env::temp_dir().join(format!("crust_integration_{}", timestamp));
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).unwrap();
-        }
-        fs::create_dir_all(&temp_dir).unwrap();
-        temp_dir
+    fn setup_integration_test() -> TempDir {
+        TempDir::new().unwrap()
     }
 
-    fn cleanup_integration_test(test_dir: PathBuf) {
-        if test_dir.exists() {
-            fs::remove_dir_all(test_dir).unwrap();
-        }
-    }
-
-    fn run_crust_command(test_dir: &PathBuf, args: &[&str]) -> Result<String, String> {
+    fn run_crust_command(test_dir: &TempDir, args: &[&str]) -> Result<String, String> {
         let crust_binary = env::current_exe()
             .map_err(|e| format!("Failed to get current exe: {}", e))?
             .parent()
@@ -165,12 +149,12 @@ mod integration_tests {
         assert!(result.is_ok(), "Init failed: {:?}", result);
 
         // Verify .crust directory exists
-        assert!(test_dir.join(".crust").exists());
-        assert!(test_dir.join(".crust/objects").exists());
-        assert!(test_dir.join(".crust/refs").exists());
+        assert!(test_dir.path().join(".crust").exists());
+        assert!(test_dir.path().join(".crust/objects").exists());
+        assert!(test_dir.path().join(".crust/refs").exists());
 
         // Create a test file
-        fs::write(test_dir.join("hello.txt"), "Hello, World!").unwrap();
+        fs::write(test_dir.path().join("hello.txt"), "Hello, World!").unwrap();
 
         // Hash the file
         let hash_result = run_crust_command(&test_dir, &["hash-object", "hello.txt"]);
@@ -191,7 +175,7 @@ mod integration_tests {
         assert_eq!(commit_hash.len(), 40);
 
         // Verify commit object exists
-        let commit_file = test_dir.join(".crust/objects")
+        let commit_file = test_dir.path().join(".crust/objects")
             .join(&commit_hash[..2])
             .join(&commit_hash[2..]);
         assert!(commit_file.exists(), "Commit object file should exist");
@@ -204,8 +188,6 @@ mod integration_tests {
         assert!(commit_content.contains("author"));
         assert!(commit_content.contains("committer"));
         assert!(commit_content.contains("Initial commit"));
-
-        cleanup_integration_test(test_dir);
     }
 
     #[test]
@@ -220,8 +202,6 @@ mod integration_tests {
         // Try to read nonexistent object
         let nonexistent = run_crust_command(&test_dir, &["cat-file", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]);
         assert!(nonexistent.is_err(), "Reading nonexistent object should fail");
-
-        cleanup_integration_test(test_dir);
     }
 
     #[test]
@@ -230,18 +210,18 @@ mod integration_tests {
 
         // Initialize and create first commit
         run_crust_command(&test_dir, &["init"]).unwrap();
-        fs::write(test_dir.join("file1.txt"), "Content 1").unwrap();
+        fs::write(test_dir.path().join("file1.txt"), "Content 1").unwrap();
         run_crust_command(&test_dir, &["commit", "--message", "First commit"]).unwrap();
 
         // Create second commit
-        fs::write(test_dir.join("file2.txt"), "Content 2").unwrap();
+        fs::write(test_dir.path().join("file2.txt"), "Content 2").unwrap();
         let commit_result = run_crust_command(&test_dir, &["commit", "--message", "Second commit"]);
         assert!(commit_result.is_ok(), "Second commit failed: {:?}", commit_result);
 
         // Verify HEAD points to new commit
-        let head_content = fs::read_to_string(test_dir.join(".crust/HEAD")).unwrap();
+        let head_content = fs::read_to_string(test_dir.path().join(".crust/HEAD")).unwrap();
         let head_ref = head_content.trim().strip_prefix("ref: ").unwrap();
-        let branch_content = fs::read_to_string(test_dir.join(".crust").join(head_ref)).unwrap();
+        let branch_content = fs::read_to_string(test_dir.path().join(".crust").join(head_ref)).unwrap();
         let latest_commit = branch_content.trim();
 
         // Read the latest commit
@@ -250,7 +230,5 @@ mod integration_tests {
         let commit_content = cat_result.unwrap();
         assert!(commit_content.contains("parent"));
         assert!(commit_content.contains("Second commit"));
-
-        cleanup_integration_test(test_dir);
     }
 }

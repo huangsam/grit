@@ -6,6 +6,9 @@ use crate::error::CrustError;
 /// This function sets up the basic directories and files needed for a Crust repository
 /// to function, including objects storage, refs, and HEAD pointer.
 ///
+/// # Arguments
+/// * `repo_root` - The root directory of the repository to initialize
+///
 /// # Returns
 /// - `Ok(())` if the repository was successfully initialized
 /// - `Err(CrustError)` if directory creation fails or the repository already exists
@@ -15,8 +18,8 @@ use crate::error::CrustError;
 /// - The .crust directory already exists
 /// - File system permissions prevent directory creation
 /// - Any I/O operation fails during setup
-pub fn initialize_repo() -> Result<(), CrustError> {
-    let crust_dir = Path::new(".crust");
+pub fn initialize_repo(repo_root: &Path) -> Result<(), CrustError> {
+    let crust_dir = repo_root.join(".crust");
 
     // Check if repository already exists
     if crust_dir.exists() {
@@ -24,7 +27,7 @@ pub fn initialize_repo() -> Result<(), CrustError> {
     }
 
     // Create the basic directory structure
-    fs::create_dir(crust_dir)?;
+    fs::create_dir(&crust_dir)?;
     fs::create_dir(crust_dir.join("objects"))?;
     fs::create_dir(crust_dir.join("refs"))?;
     fs::create_dir(crust_dir.join("refs").join("heads"))?;
@@ -38,30 +41,11 @@ pub fn initialize_repo() -> Result<(), CrustError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
     use std::fs;
-    use std::path::PathBuf;
+    use tempfile::TempDir;
 
-    fn setup_test_dir() -> PathBuf {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let temp_dir = env::temp_dir().join(format!("crust_test_repo_{}", timestamp));
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).unwrap();
-        }
-        fs::create_dir_all(&temp_dir).unwrap();
-        env::set_current_dir(&temp_dir).unwrap();
-        temp_dir
-    }
-
-    fn cleanup_test_dir(test_dir: PathBuf) {
-        if test_dir.exists() {
-            env::set_current_dir(env::temp_dir().parent().unwrap()).unwrap();
-            fs::remove_dir_all(test_dir).unwrap();
-        }
+    fn setup_test_dir() -> TempDir {
+        TempDir::new().unwrap()
     }
 
     #[test]
@@ -69,20 +53,18 @@ mod tests {
         let test_dir = setup_test_dir();
 
         // Initialize repository
-        let result = initialize_repo();
+        let result = initialize_repo(test_dir.path());
         assert!(result.is_ok());
 
         // Check that directories were created
-        assert!(Path::new(".crust").exists());
-        assert!(Path::new(".crust/objects").exists());
-        assert!(Path::new(".crust/refs").exists());
-        assert!(Path::new(".crust/refs/heads").exists());
+        assert!(test_dir.path().join(".crust").exists());
+        assert!(test_dir.path().join(".crust").join("objects").exists());
+        assert!(test_dir.path().join(".crust").join("refs").exists());
+        assert!(test_dir.path().join(".crust").join("refs").join("heads").exists());
 
         // Check HEAD file content
-        let head_content = fs::read_to_string(".crust/HEAD").unwrap();
+        let head_content = fs::read_to_string(test_dir.path().join(".crust").join("HEAD")).unwrap();
         assert_eq!(head_content, "ref: refs/heads/main\n");
-
-        cleanup_test_dir(test_dir);
     }
 
     #[test]
@@ -90,11 +72,11 @@ mod tests {
         let test_dir = setup_test_dir();
 
         // Initialize repository first time
-        let result1 = initialize_repo();
+        let result1 = initialize_repo(test_dir.path());
         assert!(result1.is_ok());
 
         // Try to initialize again - should fail
-        let result2 = initialize_repo();
+        let result2 = initialize_repo(test_dir.path());
         assert!(result2.is_err());
 
         if let Err(CrustError::RepositoryError(msg)) = result2 {
@@ -102,7 +84,5 @@ mod tests {
         } else {
             panic!("Expected RepositoryError");
         }
-
-        cleanup_test_dir(test_dir);
     }
 }
