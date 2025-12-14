@@ -9,8 +9,8 @@ use std::path::Path;
 pub fn load_ignore_patterns(repo_root: &Path) -> Vec<String> {
     let mut patterns = Vec::new();
     let gritignore_path = repo_root.join(".gritignore");
-    if gritignore_path.exists() {
-        if let Ok(content) = fs::read_to_string(&gritignore_path) {
+    if gritignore_path.exists()
+        && let Ok(content) = fs::read_to_string(&gritignore_path) {
             for line in content.lines() {
                 let trimmed = line.trim();
                 if !trimmed.is_empty() && !trimmed.starts_with('#') {
@@ -18,7 +18,6 @@ pub fn load_ignore_patterns(repo_root: &Path) -> Vec<String> {
                 }
             }
         }
-    }
     patterns
 }
 
@@ -27,8 +26,7 @@ pub fn load_ignore_patterns(repo_root: &Path) -> Vec<String> {
 pub fn is_ignored(path: &Path, patterns: &[String]) -> bool {
     let path_str = path.to_string_lossy();
     for pattern in patterns {
-        if pattern.starts_with("*.") {
-            let ext = &pattern[2..];
+        if let Some(ext) = pattern.strip_prefix("*.") {
             if path_str.ends_with(&format!(".{}", ext)) {
                 return true;
             }
