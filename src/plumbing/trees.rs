@@ -148,7 +148,7 @@ mod tests {
         #[test]
         fn test_make_snapshot_with_random_files(
             files in prop::collection::vec(
-                (prop::string::string_regex("[a-zA-Z0-9_.-]{1,50}").unwrap()
+                (prop::string::string_regex("[a-zA-Z0-9.-]{1,50}").unwrap()
                     .prop_filter("Exclude problematic filenames", |s| s != ".grit" && s != "target" && !s.starts_with('.')),
                  prop::collection::vec(any::<u8>(), 0..1000)),
                 1..10

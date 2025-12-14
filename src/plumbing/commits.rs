@@ -168,6 +168,77 @@ pub fn get_current_commit(repo_root: &Path) -> Result<Option<String>, GritError>
     }
 }
 
+/// Shows the commit history starting from the given commit hash.
+/// Traverses the commit graph backwards through parent references,
+/// displaying formatted commit information.
+///
+/// # Arguments
+/// * `start_hash` - The commit hash to start from (or "HEAD" for current)
+/// * `oneline` - Whether to use compact one-line format
+/// * `repo_root` - The root directory of the repository
+///
+/// # Returns
+/// * `Ok(())` - If the log was displayed successfully
+/// * `Err(GritError)` - If reading commits or resolving references fails
+pub fn show_commit_log(start_hash: &str, oneline: bool, repo_root: &Path) -> Result<(), GritError> {
+    let mut current_hash = if start_hash == "HEAD" {
+        get_current_commit(repo_root)?.ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
+    } else {
+        start_hash.to_string()
+    };
+
+    loop {
+        let object = crate::plumbing::objects::read_object(&current_hash, repo_root)?;
+        if object.obj_type != ObjectType::Commit {
+            return Err(GritError::RepositoryError(format!("{} is not a commit", current_hash)));
+        }
+
+        let content = String::from_utf8_lossy(&object.content);
+        let (author, message) = parse_commit_content(&content);
+
+        if oneline {
+            println!("{} {}", &current_hash[..7], message.lines().next().unwrap_or(""));
+        } else {
+            println!("commit {}", current_hash);
+            println!("Author: {}", author);
+            println!();
+            println!("{}", message);
+            println!();
+        }
+
+        // Find parent
+        if let Some(parent_line) = content.lines().find(|line| line.starts_with("parent ")) {
+            current_hash = parent_line[7..].to_string();
+        } else {
+            break; // No more parents
+        }
+    }
+
+    Ok(())
+}
+
+/// Parses commit content to extract author and message.
+fn parse_commit_content(content: &str) -> (String, String) {
+    let mut author = String::new();
+    let mut message = String::new();
+    let mut in_message = false;
+
+    for line in content.lines() {
+        if line.starts_with("author ") {
+            author = line[7..].to_string();
+        } else if line.is_empty() && !in_message {
+            in_message = true;
+        } else if in_message {
+            if !message.is_empty() {
+                message.push('\n');
+            }
+            message.push_str(line);
+        }
+    }
+
+    (author, message)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,5 +448,47 @@ mod tests {
         assert!(update_ref("../../../etc/passwd", test_hash, test_dir.path()).is_err());
         assert!(update_ref("refs/heads/main.", test_hash, test_dir.path()).is_err());
         assert!(update_ref("HEAD with spaces", test_hash, test_dir.path()).is_err());
+    }
+
+    #[test]
+    fn test_parse_commit_content() {
+        let content = "tree abc123\nauthor Test User <test@example.com> 1234567890 +0000\ncommitter Test User <test@example.com> 1234567890 +0000\n\nThis is a test commit message\nwith multiple lines.";
+
+        let (author, message) = parse_commit_content(content);
+
+        assert_eq!(author, "Test User <test@example.com> 1234567890 +0000");
+        assert_eq!(message, "This is a test commit message\nwith multiple lines.");
+    }
+
+    #[test]
+    fn test_parse_commit_content_minimal() {
+        let content = "tree abc123\nauthor Test <test@example.com> 1234567890 +0000\ncommitter Test <test@example.com> 1234567890 +0000\n\nSimple message";
+
+        let (author, message) = parse_commit_content(content);
+
+        assert_eq!(author, "Test <test@example.com> 1234567890 +0000");
+        assert_eq!(message, "Simple message");
+    }
+
+    #[test]
+    fn test_show_commit_log_no_commits() {
+        let test_dir = setup_test_repo();
+
+        let result = show_commit_log("HEAD", false, test_dir.path());
+        assert!(result.is_err());
+
+        if let Err(GritError::RepositoryError(msg)) = result {
+            assert_eq!(msg, "No commits yet");
+        } else {
+            panic!("Expected RepositoryError");
+        }
+    }
+
+    #[test]
+    fn test_show_commit_log_invalid_commit() {
+        let test_dir = setup_test_repo();
+
+        let result = show_commit_log("invalid", false, test_dir.path());
+        assert!(result.is_err());
     }
 }

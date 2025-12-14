@@ -11,7 +11,7 @@ use crate::error::GritError;
 use crate::repository::initialize_repo;
 use crate::plumbing::objects::{store_object, read_object, ObjectType};
 use crate::plumbing::trees::make_snapshot;
-use crate::plumbing::commits::{create_commit, update_ref, get_current_commit};
+use crate::plumbing::commits::{create_commit, update_ref, get_current_commit, show_commit_log};
 use crate::plumbing::checkout::restore_snapshot;
 
 /// Grit - A minimal Git plumbing clone in Rust
@@ -49,6 +49,15 @@ enum Commands {
     Checkout {
         /// Hash of tree or commit to restore
         hash: String,
+    },
+    /// Show commit history
+    Log {
+        /// Commit hash to start from (defaults to HEAD)
+        #[arg(default_value = "HEAD")]
+        commit: String,
+        /// Show compact one-line format
+        #[arg(short, long)]
+        oneline: bool,
     },
 }
 
@@ -109,6 +118,9 @@ fn main() -> Result<(), GritError> {
         Commands::Checkout { hash } => {
             restore_snapshot(&hash, Path::new("."))?;
             println!("Restored snapshot {}", &hash[..8]);
+        }
+        Commands::Log { commit, oneline } => {
+            show_commit_log(&commit, oneline, Path::new("."))?;
         }
     }
 
@@ -247,6 +259,73 @@ mod integration_tests {
         let commit_content = cat_result.unwrap();
         assert!(commit_content.contains("parent"));
         assert!(commit_content.contains("Second commit"));
+    }
+
+    #[test]
+    fn test_log_command() {
+        let test_dir = setup_integration_test();
+
+        // Initialize and create commits
+        run_grit_command(&test_dir, &["init"]).unwrap();
+        fs::write(test_dir.path().join("file1.txt"), "Content 1").unwrap();
+        run_grit_command(&test_dir, &["commit", "--message", "First commit"]).unwrap();
+
+        fs::write(test_dir.path().join("file2.txt"), "Content 2").unwrap();
+        run_grit_command(&test_dir, &["commit", "--message", "Second commit"]).unwrap();
+
+        // Test log command
+        let log_result = run_grit_command(&test_dir, &["log"]);
+        assert!(log_result.is_ok(), "Log command failed: {:?}", log_result);
+        let log_output = log_result.unwrap();
+        assert!(log_output.contains("commit"));
+        assert!(log_output.contains("Author:"));
+        assert!(log_output.contains("Second commit"));
+        assert!(log_output.contains("First commit"));
+
+        // Test oneline format
+        let oneline_result = run_grit_command(&test_dir, &["log", "--oneline"]);
+        assert!(oneline_result.is_ok(), "Oneline log failed: {:?}", oneline_result);
+        let oneline_output = oneline_result.unwrap();
+        assert!(oneline_output.lines().count() == 2); // Two commits
+        assert!(oneline_output.contains("Second commit"));
+        assert!(oneline_output.contains("First commit"));
+    }
+
+    #[test]
+    fn test_log_command_single_commit() {
+        let test_dir = setup_integration_test();
+
+        // Initialize and create one commit
+        run_grit_command(&test_dir, &["init"]).unwrap();
+        fs::write(test_dir.path().join("file.txt"), "Content").unwrap();
+        run_grit_command(&test_dir, &["commit", "--message", "Single commit"]).unwrap();
+
+        // Test log command
+        let log_result = run_grit_command(&test_dir, &["log"]);
+        assert!(log_result.is_ok());
+        let log_output = log_result.unwrap();
+        assert!(log_output.contains("commit"));
+        assert!(log_output.contains("Author:"));
+        assert!(log_output.contains("Single commit"));
+        assert!(!log_output.contains("parent")); // No parent for first commit
+    }
+
+    #[test]
+    fn test_log_command_error_cases() {
+        let test_dir = setup_integration_test();
+
+        // Test log without repo
+        let log_result = run_grit_command(&test_dir, &["log"]);
+        assert!(log_result.is_err(), "Log should fail without commits");
+
+        // Initialize but no commits
+        run_grit_command(&test_dir, &["init"]).unwrap();
+        let log_result = run_grit_command(&test_dir, &["log"]);
+        assert!(log_result.is_err(), "Log should fail without commits");
+
+        // Test invalid commit hash
+        let log_result = run_grit_command(&test_dir, &["log", "invalidhash"]);
+        assert!(log_result.is_err(), "Log should fail with invalid hash");
     }
 
     #[test]

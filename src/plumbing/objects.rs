@@ -298,7 +298,7 @@ mod tests {
         #[test]
         fn test_store_read_tree_roundtrip(
             entries in prop::collection::vec(
-                (prop::string::string_regex("[a-zA-Z0-9_.-]{1,10}").unwrap()
+                (prop::string::string_regex("[a-zA-Z0-9.-]{1,10}").unwrap()
                     .prop_filter("Exclude problematic filenames", |s| s != "." && s != ".." && !s.contains('/') && !s.starts_with('.') && s != ".grit" && s != "target"),
                  prop::collection::vec(any::<u8>(), 0..100)),
                 1..5

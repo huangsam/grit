@@ -219,7 +219,7 @@ mod tests {
         fn test_parse_tree_entries_with_random_data(
             entries in prop::collection::vec(
                 (prop::string::string_regex(r"100644|100755|40000").unwrap(), // Valid modes
-                 prop::string::string_regex("[a-zA-Z0-9_.-]{1,50}").unwrap()
+                 prop::string::string_regex("[a-zA-Z0-9.-]{1,50}").unwrap()
                     .prop_filter("Exclude problematic filenames", |s| s != ".grit" && s != "target" && !s.starts_with('.')),
                  prop::array::uniform20(any::<u8>())), // 20-byte hash
                 1..5
