@@ -14,30 +14,20 @@
 //! - Integrate multiple low-level operations
 //! - Respect user preferences (like ignore files)
 //!
-//! ## Available Commands
+//! ## Commands
 //!
 //! - [add]: Stage files for commit
 //! - [status]: Show working directory status
 //! - [reset]: Reset to previous states
 //! - [diff]: Show differences between commits/files
 //!
-//! ## Architecture
-//!
-//! Each command module:
-//! - Parses command-line arguments
-//! - Validates input and repository state
-//! - Calls appropriate plumbing operations
-//! - Formats and displays results
-//! - Handles errors gracefully
+//! Each command module parses arguments, validates input, calls plumbing operations,
+//! and formats results for users.
 //!
 //! ## Integration
 //!
-//! Commands integrate with:
-//! - Repository management
-//! - Index operations
-//! - Object database
-//! - Ignore pattern processing
-//! - Working directory manipulation
+//! Commands integrate with repository management, index operations, object database,
+//! and ignore pattern processing.
 
 pub mod add;
 pub mod diff;

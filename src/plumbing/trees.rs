@@ -13,15 +13,12 @@
 //! - Build directory hierarchies from tree structures
 //! - Support parallel processing for large directory trees
 //!
-//! ## Key Components
+//! ## Features
 //!
 //! - `TreeEntry`: Represents a single entry in a tree (file or subdirectory)
 //! - `make_snapshot()`: Creates a tree from a directory path
 //! - Tree serialization and deserialization functions
 //! - Integration with the index for staging area snapshots
-//!
-//! ## Performance Features
-//!
 //! - Parallel tree traversal using Rayon
 //! - Efficient sorting and deduplication of entries
 //! - Buffered I/O for large tree operations

@@ -13,15 +13,12 @@
 //! - Reading commit history and metadata
 //! - Reference validation and resolution
 //!
-//! ## Key Components
+//! ## Features
 //!
 //! - `create_commit()`: Creates a new commit object
 //! - `update_ref()`: Updates branch or HEAD references
 //! - `show_commit_log()`: Displays commit history
 //! - Reference parsing and validation functions
-//!
-//! ## Features
-//!
 //! - Support for commit messages and author information
 //! - Parent commit tracking for history
 //! - Reference locking for concurrent access safety

@@ -12,15 +12,12 @@
 //! - Handling file permissions and executable bits
 //! - Managing conflicts and overwrites safely
 //!
-//! ## Key Components
+//! ## Features
 //!
 //! - `restore_snapshot()`: Restores working directory from a tree hash
 //! - Tree traversal and file restoration functions
 //! - Permission handling for executable files
 //! - Conflict detection and resolution
-//!
-//! ## Safety Features
-//!
 //! - Atomic operations where possible
 //! - Backup of uncommitted changes (future feature)
 //! - Validation of object hashes before restoration

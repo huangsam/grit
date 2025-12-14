@@ -26,17 +26,11 @@
 //! - Index vs HEAD comparison
 //! - Working directory vs index comparison
 //! - Ignore pattern filtering
-//!
-//! ## Features
-//!
 //! - Color-coded output for different file states
 //! - Short and long format options
 //! - Efficient scanning of large directories
 //! - Proper handling of renamed and moved files
 //! - Integration with ignore patterns
-//!
-//! ## Performance
-//!
 //! - Lazy loading of file contents
 //! - Parallel directory traversal
 //! - Caching of expensive operations

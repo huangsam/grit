@@ -18,17 +18,13 @@
 //! edits (insertions, deletions) to transform one sequence into another. It's
 //! particularly efficient for finding differences in text files.
 //!
-//! ## Key Components
+//! ## Features
 //!
 //! - `diff_files()`: Compares two files and returns diff output
 //! - `diff_commits()`: Compares two commits or trees
 //! - Myers algorithm implementation for sequence comparison
 //! - Unified diff formatting functions
-//!
-//! ## Features
-//!
 //! - Support for binary file detection
-//! - Context lines in diff output
 //! - Performance optimizations for large files
 //! - Integration with repository object database
 //!

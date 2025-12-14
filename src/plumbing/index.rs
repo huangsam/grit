@@ -24,15 +24,12 @@
 //! - Flags (stage, name length, etc.)
 //! - Null-terminated path name
 //!
-//! ## Key Components
+//! ## Features
 //!
 //! - `Index`: Main structure representing the index file
 //! - `IndexEntry`: Individual file entry with metadata
 //! - Index reading/writing functions with full format compatibility
 //! - Entry manipulation (add, remove, update) operations
-//!
-//! ## Features
-//!
 //! - Full compatibility with Git index format versions 2 and 3
 //! - Efficient binary serialization and deserialization
 //! - Support for file permissions, timestamps, and extended attributes

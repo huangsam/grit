@@ -26,16 +26,10 @@
 //! - HEAD and index updating
 //! - Working directory restoration
 //! - Safety checks and confirmations
-//!
-//! ## Features
-//!
 //! - Support for all three reset modes
 //! - Commit hash resolution (HEAD~n, branch names)
 //! - Preservation of uncommitted changes in soft/mixed modes
 //! - Integration with checkout for working directory updates
-//!
-//! ## Safety
-//!
 //! - Validation of target commits
 //! - Warning for destructive operations
 //! - Backup recommendations for hard resets

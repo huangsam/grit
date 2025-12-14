@@ -13,15 +13,12 @@
 //! - Calculating SHA-1 hashes for object content
 //! - Managing the object database structure
 //!
-//! ## Key Components
+//! ## Features
 //!
 //! - `ObjectType`: Enumeration of Git object types (Blob, Tree, Commit)
 //! - `store_object()`: Stores an object and returns its hash
 //! - `read_object()`: Reads an object by its hash
 //! - Hash calculation and compression utilities
-//!
-//! ## Performance Features
-//!
 //! - Buffered I/O for efficient reading/writing
 //! - LRU caching integration for frequently accessed objects
 //! - Parallel processing support for bulk operations

@@ -28,16 +28,10 @@
 //! - Ignore pattern filtering
 //! - Index entry creation and updating
 //! - Progress reporting for large operations
-//!
-//! ## Features
-//!
 //! - Efficient handling of large file sets
 //! - Proper handling of file permissions and timestamps
 //! - Conflict detection and resolution
 //! - Integration with ignore patterns
-//!
-//! ## Performance
-//!
 //! - Parallel processing for multiple files
 //! - Buffered I/O for large files
 //! - Incremental updates to avoid full index rewrites

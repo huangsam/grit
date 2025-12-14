@@ -27,9 +27,6 @@
 //! - Tree comparison and file delta calculation
 //! - Unified diff output formatting
 //! - Binary file detection and handling
-//!
-//! ## Features
-//!
 //! - Unified diff format with context lines
 //! - Color output for additions/deletions
 //! - Support for renamed and moved files

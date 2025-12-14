@@ -20,14 +20,11 @@
 //! - `file.txt`: Exact filename matches
 //! - `!important.txt`: Negation patterns (future feature)
 //!
-//! ## Key Components
+//! ## Features
 //!
 //! - `load_ignore_patterns()`: Reads patterns from `.gritignore`
 //! - `is_ignored()`: Checks if a path matches ignore patterns
 //! - Pattern compilation and caching for performance
-//!
-//! ## Performance Features
-//!
 //! - Pattern caching to avoid repeated file reads
 //! - Efficient glob matching algorithms
 //! - Minimal memory footprint for large pattern sets

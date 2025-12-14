@@ -11,7 +11,7 @@
 //! work directly with Git's internal data structures and are designed for
 //! scripting and integration.
 //!
-//! ## Submodules
+//! ## Modules
 //!
 //! - [objects]: Git object storage and retrieval with compression
 //! - [trees]: Tree object creation and directory structure management
@@ -21,14 +21,8 @@
 //! - [ignores]: Ignore pattern processing for `.gritignore`
 //! - [diff]: Core diff algorithm using Myers for file comparison
 //!
-//! ## Architecture
-//!
-//! These modules work together to provide:
-//! - Object database management
-//! - Repository state tracking
-//! - History and branching support
-//! - File system operations
-//! - Performance optimizations (caching, parallelism)
+//! These modules work together to provide object database management, repository
+//! state tracking, history and branching support, and file system operations.
 //!
 //! ## Usage
 //!

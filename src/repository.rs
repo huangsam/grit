@@ -25,19 +25,19 @@
 //! └── index         # Staging area (binary format)
 //! ```
 //!
-//! ## Key Components
+//! ## Features
 //!
 //! - `Repository`: Core struct representing a repository instance
 //! - `initialize_repo()`: Creates new repository structure
 //! - `find_repo_root()`: Discovers repository root from any subdirectory
 //! - Repository validation and path utilities
-//!
-//! ## Features
-//!
 //! - Automatic repository discovery (`.grit` directory search)
 //! - Safe initialization with conflict detection
 //! - Cross-platform path handling
 //! - Integration with all Grit operations
+//! - Validates repository integrity before operations
+//! - Prevents accidental initialization in existing repos
+//! - Handles concurrent access safely
 //!
 //! ## Usage
 //!
@@ -50,12 +50,6 @@
 //! // Work with existing repository
 //! let repo = Repository::discover()?;
 //! ```
-//!
-//! ## Safety
-//!
-//! - Validates repository integrity before operations
-//! - Prevents accidental initialization in existing repos
-//! - Handles concurrent access safely
 
 use crate::error::GritError;
 use std::fs;
