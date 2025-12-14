@@ -146,9 +146,9 @@ impl Index {
     /// let entry = IndexEntry {
     ///     path: "file.txt".to_string(),
     ///     hash: [0u8; 20],
-    ///     ctime: 0,
+    ///     ctime_sec: 0,
     ///     ctime_nsec: 0,
-    ///     mtime: 0,
+    ///     mtime_sec: 0,
     ///     mtime_nsec: 0,
     ///     dev: 0,
     ///     ino: 0,
