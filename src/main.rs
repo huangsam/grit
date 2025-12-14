@@ -1,6 +1,7 @@
 mod error;
 mod repository;
 mod plumbing;
+mod cache;
 
 use clap::{Parser, Subcommand};
 use std::path::Path;

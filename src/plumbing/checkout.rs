@@ -1,5 +1,8 @@
 use crate::error::CrustError;
 use crate::plumbing::objects::{read_object, ObjectType};
+use crate::cache;
+use sha1::{Digest, Sha1};
+use hex;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -103,6 +106,7 @@ fn restore_tree(tree_hash: &str, repo_root: &Path, current_path: &Path) -> Resul
 
 /// Represents a tree entry parsed from tree object content
 #[derive(Debug)]
+#[derive(Clone)]
 pub struct TreeEntry {
     pub mode: String,
     pub name: String,
@@ -111,6 +115,14 @@ pub struct TreeEntry {
 
 /// Parses tree entries from raw tree content
 pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, CrustError> {
+    // Compute content hash for caching
+    let content_hash = hex::encode(Sha1::digest(content));
+
+    // Check cache first
+    if let Some(cached_entries) = cache::GLOBAL_CACHE.tree_cache.get(&content_hash) {
+        return Ok(cached_entries);
+    }
+
     let mut entries = Vec::new();
     let mut pos = 0;
 
@@ -141,6 +153,9 @@ pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, CrustError> 
 
         entries.push(TreeEntry { mode, name, hash });
     }
+
+    // Cache the parsed entries
+    cache::GLOBAL_CACHE.tree_cache.put(content_hash, entries.clone());
 
     Ok(entries)
 }

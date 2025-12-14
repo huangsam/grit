@@ -6,6 +6,7 @@ use flate2::read::ZlibDecoder;
 use flate2::Compression;
 use std::io::{Read, Write, BufWriter, BufReader};
 use std::fs;
+use crate::cache;
 
 /// Represents the type of Git object stored in the repository.
 /// Git objects come in three fundamental types that form the basis of the version control system.
@@ -59,6 +60,20 @@ pub struct Object {
 /// # Validation
 /// The returned hash should match `git hash-object -w --stdin` for the same input.
 pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> Result<String, CrustError> {
+    // Check hash cache first - compute content hash to see if we've stored this before
+    let obj_type_u8 = obj_type.clone() as u8;
+    let content_hash = format!("{}_{}", obj_type_u8, hex::encode(Sha1::digest(content)));
+
+    if let Some(cached_hash) = cache::GLOBAL_CACHE.hash_cache.get(&content_hash) {
+        // Verify the object still exists on disk
+        let (prefix, suffix) = cached_hash.split_at(2);
+        let object_path = repo_root.join(".crust").join("objects").join(prefix).join(suffix);
+        if object_path.exists() {
+            return Ok(cached_hash);
+        }
+        // Object was evicted from disk, fall through to recompute
+    }
+
     // Step 1: Header Construction
     let type_str = match obj_type {
         ObjectType::Blob => "blob",
@@ -74,6 +89,9 @@ pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> R
     hasher.update(content);
     let hash_bytes = hasher.finalize();
     let hash_hex = hex::encode(hash_bytes);
+
+    // Cache the computed hash
+    cache::GLOBAL_CACHE.hash_cache.put(content_hash, hash_hex.clone());
 
     // Step 3: Compression
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
@@ -116,6 +134,11 @@ pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> R
 /// * `ObjectNotFound` - If no object with the given hash exists
 /// * `CorruptObject` - If the stored data is malformed or decompression fails
 pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, CrustError> {
+    // Check cache first
+    if let Some(cached_object) = cache::GLOBAL_CACHE.object_cache.get(hash) {
+        return Ok(cached_object);
+    }
+
     // Step 1: Retrieval
     let (prefix, suffix) = hash.split_at(2);
     let object_path = repo_root.join(".crust").join("objects").join(prefix).join(suffix);
@@ -157,10 +180,15 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, CrustError> {
     };
 
     // Step 4: Output
-    Ok(Object {
+    let object = Object {
         obj_type,
         content: content.to_vec(),
-    })
+    };
+
+    // Cache the object for future use
+    cache::GLOBAL_CACHE.object_cache.put(hash.to_string(), object.clone());
+
+    Ok(object)
 }
 
 #[cfg(test)]
@@ -400,6 +428,9 @@ mod tests {
             corrupted_content[10] ^= 0xFF; // Flip some bits
         }
         std::fs::write(&object_path, corrupted_content).unwrap();
+
+        // Clear cache to ensure we read from disk
+        cache::GLOBAL_CACHE.object_cache.clear();
 
         // Attempt to read should fail gracefully
         let result = read_object(&hash, test_dir.path());
