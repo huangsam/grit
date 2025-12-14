@@ -14,6 +14,58 @@ use std::fs;
 use std::path::Path;
 
 /// Show the status of the working directory and staging area
+///
+/// Displays information about staged changes, unstaged changes, and untracked files.
+/// This mimics the behavior of `git status` by comparing the working directory,
+/// index (staging area), and HEAD commit.
+///
+/// # Arguments
+///
+/// * `repo_root` - The root directory of the Git repository
+///
+/// # Returns
+///
+/// Returns `Ok(())` after printing the status information.
+///
+/// # Errors
+///
+/// Returns `GritError` if:
+/// - The repository is not initialized
+/// - Index cannot be read
+/// - HEAD commit cannot be read
+/// - Tree objects cannot be parsed
+///
+/// # Output Format
+///
+/// The output includes three sections:
+/// - **Changes to be committed**: Files staged for commit (index vs HEAD)
+/// - **Changes not staged for commit**: Modified files (working vs index)
+/// - **Untracked files**: New files not in index
+///
+/// If there are no changes, displays "nothing to commit, working tree clean".
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::commands::status::show_status;
+///
+/// let repo_root = Path::new("/path/to/repo");
+/// show_status(repo_root)?;
+/// ```
+///
+/// Example output:
+/// ```text
+/// Changes to be committed:
+///   new file: README.md
+///   modified: src/main.rs
+///
+/// Changes not staged for commit:
+///   modified: Cargo.toml
+///
+/// Untracked files:
+///   notes.txt
+/// ```
 pub fn show_status(repo_root: &Path) -> Result<(), GritError> {
     // Read the current index
     let index = read_index(repo_root)?;

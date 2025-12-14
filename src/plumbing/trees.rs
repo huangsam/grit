@@ -264,7 +264,48 @@ mod tests {
 /// Creates a tree object from the Git index.
 ///
 /// This function builds a tree structure reflecting the current state of the index.
-/// It is used by `grit write-tree` and `grit commit` to create commits from the staging area.
+/// It recursively constructs tree objects for subdirectories and creates a single
+/// root tree object representing the entire staged file structure.
+///
+/// Used by `grit write-tree` and `grit commit` to create commits from the staging area.
+/// The resulting tree hash can be used as the root of a commit.
+///
+/// # Arguments
+///
+/// * `index` - The Git index containing the staged files and their metadata
+/// * `repo_root` - The root directory of the Git repository
+///
+/// # Returns
+///
+/// Returns `Ok(hash)` where `hash` is the 40-character hex SHA-1 hash of the created tree object.
+///
+/// # Errors
+///
+/// Returns `GritError` if:
+/// - Index entries cannot be processed
+/// - Tree objects cannot be stored
+/// - Hash decoding fails
+///
+/// # Algorithm
+///
+/// 1. Groups index entries by directory level
+/// 2. Recursively builds subtrees for directories
+/// 3. Creates blob references for files
+/// 4. Sorts entries lexicographically (Git standard)
+/// 5. Stores the final tree object
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::plumbing::index::read_index;
+/// use grit::plumbing::trees::write_tree_from_index;
+///
+/// let repo_root = Path::new("/path/to/repo");
+/// let index = read_index(repo_root).unwrap();
+/// let tree_hash = write_tree_from_index(&index, repo_root).unwrap();
+/// println!("Tree hash: {}", tree_hash);
+/// ```
 pub fn write_tree_from_index(index: &Index, repo_root: &Path) -> Result<String, GritError> {
     build_tree_recursive(&index.entries, 0, repo_root)
 }

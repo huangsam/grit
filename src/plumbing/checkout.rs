@@ -119,7 +119,7 @@ pub struct TreeEntry {
 /// Parses tree entries from raw tree content
 ///
 /// Git tree objects store directory contents in a compact binary format:
-/// - Each entry: [mode] [space] [name] [null byte] [20-byte SHA-1 hash]
+/// - Each entry: \[mode\] \[space\] \[name\] \[null byte\] \[20-byte SHA-1 hash\]
 /// - Mode: "100644" (regular file), "100755" (executable), "40000" (directory)
 /// - Name: UTF-8 encoded filename
 /// - Hash: Binary SHA-1 hash of the referenced object

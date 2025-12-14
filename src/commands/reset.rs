@@ -11,12 +11,68 @@ use std::path::Path;
 use std::fs;
 
 #[derive(Debug, Clone, Copy)]
+/// Reset modes for the `grit reset` command
+///
+/// Determines how much of the repository state to reset when moving HEAD.
+/// Similar to `git reset --soft|--mixed|--hard`.
 pub enum ResetMode {
+    /// Move HEAD only, keep index and working directory unchanged
+    ///
+    /// Useful for amending commits without changing staged changes.
     Soft,
+    /// Move HEAD and update index, keep working directory unchanged
+    ///
+    /// Default behavior - unstages changes but preserves working directory modifications.
     Mixed,
+    /// Move HEAD, update index, and restore working directory
+    ///
+    /// Completely resets repository to target commit state. **Destructive operation**.
     Hard,
 }
 
+/// Reset the current HEAD to a specified commit
+///
+/// Moves the current branch tip to the specified commit and optionally updates
+/// the index and working directory according to the reset mode.
+///
+/// # Arguments
+///
+/// * `commit_hash` - The hash of the commit to reset to
+/// * `mode` - The reset mode determining what to update (Soft, Mixed, or Hard)
+/// * `repo_root` - The root directory of the Git repository
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the reset operation completed successfully.
+///
+/// # Errors
+///
+/// Returns `GritError` if:
+/// - The commit hash doesn't exist or isn't a commit object
+/// - Repository refs cannot be updated
+/// - Index cannot be read or written
+/// - Working directory files cannot be restored (for hard reset)
+///
+/// # Reset Modes
+///
+/// - **Soft**: Only moves HEAD, preserves index and working directory
+/// - **Mixed**: Moves HEAD and updates index, preserves working directory
+/// - **Hard**: Moves HEAD, updates index, and restores working directory
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::commands::reset::{reset, ResetMode};
+///
+/// let repo_root = Path::new("/path/to/repo");
+///
+/// // Soft reset to previous commit
+/// reset("abc123...", ResetMode::Soft, repo_root)?;
+///
+/// // Hard reset (destructive!)
+/// reset("def456...", ResetMode::Hard, repo_root)?;
+/// ```
 pub fn reset(commit_hash: &str, mode: ResetMode, repo_root: &Path) -> Result<(), GritError> {
     // 1. Validate commit exists
     let object = read_object(commit_hash, repo_root)?;
@@ -79,6 +135,39 @@ pub fn reset(commit_hash: &str, mode: ResetMode, repo_root: &Path) -> Result<(),
     Ok(())
 }
 
+/// Reset specific paths to match a target commit
+///
+/// Updates the index entries for the specified paths to match the state
+/// of those paths in the target commit. This is similar to `git reset <commit> -- <paths>`.
+///
+/// # Arguments
+///
+/// * `commit_hash` - The hash of the commit containing the desired state
+/// * `paths` - Slice of file/directory paths to reset
+/// * `repo_root` - The root directory of the Git repository
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the paths were successfully reset in the index.
+///
+/// # Errors
+///
+/// Returns `GritError` if:
+/// - The commit hash doesn't exist or isn't a commit object
+/// - Index cannot be read or written
+/// - Tree objects cannot be parsed
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::commands::reset::reset_paths;
+///
+/// let repo_root = Path::new("/path/to/repo");
+///
+/// // Reset specific files to match HEAD~1
+/// reset_paths("abc123...", &["src/main.rs".to_string(), "Cargo.toml".to_string()], repo_root)?;
+/// ```
 pub fn reset_paths(commit_hash: &str, paths: &[String], repo_root: &Path) -> Result<(), GritError> {
     // 1. Get tree from commit
     let object = read_object(commit_hash, repo_root)?;

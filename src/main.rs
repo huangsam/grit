@@ -41,7 +41,10 @@ enum Commands {
         /// Hash of the object to display
         hash: String,
     },
-    /// Create a tree object from the current directory
+    /// Create a tree object from the current index
+    ///
+    /// Builds a tree object representing the current state of the staging area.
+    /// Equivalent to `git write-tree`.
     WriteTree,
     /// Create a commit object
     Commit {

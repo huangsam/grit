@@ -10,6 +10,49 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Add files to the staging area
+///
+/// This function stages files for the next commit by updating the Git index.
+/// It supports individual files, directories, and glob patterns (e.g., "*.rs").
+/// Files are compressed and stored as blob objects, then added to the index.
+///
+/// # Arguments
+///
+/// * `files` - A slice of file paths or patterns to add. Can include:
+///   - Individual files: `["file.txt"]`
+///   - Directories: `["src/"]` (adds all files recursively)
+///   - Glob patterns: `["*.rs", "*.toml"]`
+///   - Current directory: `["."]` (adds all files)
+/// * `repo_root` - The root directory of the Git repository
+///
+/// # Returns
+///
+/// Returns `Ok(())` if all files were successfully added to the index.
+///
+/// # Errors
+///
+/// Returns `GritError` if:
+/// - The repository is not initialized
+/// - Files cannot be read
+/// - Index cannot be read or written
+/// - Invalid glob patterns are provided
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::commands::add::add_files;
+///
+/// let repo_root = Path::new("/path/to/repo");
+///
+/// // Add a single file
+/// add_files(&["README.md".to_string()], repo_root)?;
+///
+/// // Add all Rust files
+/// add_files(&["*.rs".to_string()], repo_root)?;
+///
+/// // Add entire directory
+/// add_files(&["src/".to_string()], repo_root)?;
+/// ```
 pub fn add_files(files: &[String], repo_root: &Path) -> Result<(), GritError> {
     // Read the current index
     let mut index = read_index(repo_root)?;

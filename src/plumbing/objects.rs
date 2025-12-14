@@ -328,10 +328,11 @@ mod tests {
                  prop::collection::vec(any::<u8>(), 0..100)),
                 1..5
             ).prop_map(|mut entries| {
-                // Ensure unique filenames by appending index to duplicates
+                // Ensure unique filenames (case-sensitive) by appending index to duplicates
                 let mut seen = std::collections::HashSet::new();
                 for (i, (filename, _)) in entries.iter_mut().enumerate() {
-                    if !seen.insert(filename.clone()) {
+                    let filename_lower = filename.to_lowercase();
+                    if !seen.insert(filename_lower) {
                         *filename = format!("{}_{}", filename, i);
                     }
                 }

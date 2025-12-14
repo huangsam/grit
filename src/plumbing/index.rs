@@ -105,6 +105,49 @@ impl Index {
 }
 
 /// Create an index entry from file metadata and content hash
+///
+/// This function creates a new IndexEntry by reading file system metadata
+/// and combining it with the provided content hash. The entry represents
+/// a file staged for commit in the Git index.
+///
+/// # Arguments
+///
+/// * `path` - The absolute path to the file
+/// * `hash` - The 20-byte SHA-1 hash of the file's content (blob hash)
+/// * `repo_root` - The root directory of the Git repository
+///
+/// # Returns
+///
+/// Returns `Ok(IndexEntry)` containing all the file metadata and hash.
+///
+/// # Errors
+///
+/// Returns `GritError` if:
+/// - File metadata cannot be read
+/// - Path is not within the repository root
+/// - System time operations fail
+///
+/// # Metadata Collected
+///
+/// - Timestamps: creation and modification times with nanosecond precision
+/// - File attributes: device, inode, user/group IDs (Unix-specific)
+/// - Permissions: file mode/permissions
+/// - Size: file size in bytes
+/// - Path: relative path from repository root
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::plumbing::index::create_index_entry;
+///
+/// let file_path = Path::new("/repo/src/main.rs");
+/// let repo_root = Path::new("/repo");
+/// let content_hash = [0u8; 20]; // Would be computed from file content
+///
+/// let entry = create_index_entry(file_path, &content_hash, repo_root).unwrap();
+/// println!("Staged file: {}", entry.path);
+/// ```
 pub fn create_index_entry(
     path: &Path,
     hash: &[u8; 20],
@@ -169,6 +212,46 @@ pub fn create_index_entry(
 }
 
 /// Read the Git index from disk
+///
+/// Parses the binary Git index file and returns an Index structure containing
+/// all staged files. If no index file exists, returns an empty index.
+///
+/// The index file follows Git's binary format with header, entries, extensions,
+/// and SHA-1 trailer for integrity verification.
+///
+/// # Arguments
+///
+/// * `repo_root` - The root directory of the Git repository
+///
+/// # Returns
+///
+/// Returns `Ok(Index)` containing all staged files and their metadata.
+///
+/// # Errors
+///
+/// Returns `GritError` if:
+/// - Index file cannot be opened or read
+/// - Index format is invalid (wrong signature, version, or corruption)
+/// - Index entries cannot be parsed
+///
+/// # Index Format
+///
+/// The function reads:
+/// - Header: 4-byte "DIRC" signature, 4-byte version, 4-byte entry count
+/// - Entries: Array of IndexEntry structures, sorted by path
+/// - Extensions: Optional extensions (currently skipped)
+/// - Trailer: SHA-1 hash for integrity (currently not verified)
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::plumbing::index::read_index;
+///
+/// let repo_root = Path::new("/path/to/repo");
+/// let index = read_index(repo_root).unwrap();
+/// println!("Staged files: {}", index.entries.len());
+/// ```
 pub fn read_index(repo_root: &Path) -> Result<Index, GritError> {
     let index_path = repo_root.join(".grit").join("index");
 
@@ -209,6 +292,46 @@ pub fn read_index(repo_root: &Path) -> Result<Index, GritError> {
 }
 
 /// Write the Git index to disk
+///
+/// Serializes the Index structure to Git's binary index format and writes it
+/// to the .grit/index file. The index contains all staged files with their metadata.
+///
+/// The written index follows Git's format with proper sorting, padding, and integrity hash.
+///
+/// # Arguments
+///
+/// * `index` - The Index structure containing staged files to write
+/// * `repo_root` - The root directory of the Git repository
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the index was successfully written.
+///
+/// # Errors
+///
+/// Returns `GritError` if:
+/// - Index file cannot be created or written
+/// - Index entries cannot be serialized
+///
+/// # Index Format
+///
+/// The function writes:
+/// - Header: "DIRC" signature, version 2, entry count
+/// - Entries: IndexEntry structures sorted by path with proper padding
+/// - Extensions: None (basic implementation)
+/// - Trailer: SHA-1 hash of all preceding content for integrity
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::plumbing::index::{read_index, write_index};
+///
+/// let repo_root = Path::new("/path/to/repo");
+/// let mut index = read_index(repo_root).unwrap();
+/// // Modify index...
+/// write_index(&index, repo_root).unwrap();
+/// ```
 pub fn write_index(index: &Index, repo_root: &Path) -> Result<(), GritError> {
     let index_path = repo_root.join(".grit").join("index");
     let mut writer = BufWriter::new(fs::File::create(index_path)?);
