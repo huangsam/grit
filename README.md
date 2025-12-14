@@ -8,6 +8,7 @@ A high-performance Git implementation in Rust with both plumbing and porcelain c
 - **High Performance**: Aggressive caching and parallel processing for 2-3x faster operations
 - **Git Compatible**: Full compatibility with standard Git repositories and formats
 - **Memory Efficient**: LRU caching prevents memory bloat during large operations
+- **Ignore Support**: Respects `.gritignore` files for excluding files from staging and status
 
 ## Installation
 
@@ -29,6 +30,29 @@ grit commit -m "Initial commit"
 # View history
 grit log --oneline
 ```
+
+## Ignoring Files
+
+Grit supports `.gritignore` files to exclude files from staging and status output. Create a `.gritignore` file in your repository root:
+
+```text
+# Ignore temporary files
+*.tmp
+*.log
+
+# Ignore build directories
+build/
+target/
+
+# Ignore specific files
+secret.txt
+```
+
+Patterns support:
+
+- `*.ext` - Match files with specific extensions
+- `dir/` - Ignore directories and their contents
+- `file.txt` - Exact file matches
 
 ## Commands
 

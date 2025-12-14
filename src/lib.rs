@@ -22,6 +22,7 @@
 //! - [commits](plumbing::commits): Commit object creation and history management
 //! - [checkout](plumbing::checkout): Working directory restoration from snapshots
 //! - [index](plumbing::index): Git index (staging area) implementation
+//! - [ignores](plumbing::ignores): Load and match .gritignore patterns
 //!
 //! ### Porcelain Commands
 //! - [add](commands::add): Stage files for commit (`grit add`)

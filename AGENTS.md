@@ -29,8 +29,8 @@ src/
 ├── error.rs: Comprehensive error types (GritError)
 ├── cache.rs: Thread-safe LRU caching
 ├── commands/ (Porcelain)
-│   ├── add.rs: Staging files (updates Index)
-│   ├── status.rs: Working tree vs Index vs HEAD comparison
+│   ├── add.rs: Staging files (updates Index, respects .gritignore)
+│   ├── status.rs: Working tree vs Index vs HEAD comparison (hides ignored files)
 │   ├── reset.rs: Moving HEAD and updating Index/Working Tree
 │   └── diff.rs: Show changes between commits
 └── plumbing/ (Core)
@@ -39,6 +39,7 @@ src/
     ├── commits.rs: Create commits, manage refs/history
     ├── checkout.rs: Restore working dir from snapshots
     ├── index.rs: Git Index binary format reader/writer
+    ├── ignores.rs: Load and match .gritignore patterns
     └── diff.rs: Core diff algorithm (Myers)
 ```
 
@@ -48,8 +49,8 @@ Grit provides a mix of plumbing and porcelain operations:
 
 ### Porcelain (User-Facing)
 - `grit init`: Initialize a new repository (creates `.grit/`).
-- `grit add <files...>`: Add file contents to the index. Supports glob patterns.
-- `grit status`: Show the working tree status.
+- `grit add <files...>`: Add file contents to the index. Supports glob patterns and respects `.gritignore`.
+- `grit status`: Show the working tree status, hiding files ignored by `.gritignore`.
 - `grit commit -m <msg>`: Create a new commit containing the current contents of the index.
 - `grit log`: Show commit logs.
 - `grit reset [--soft|--mixed|--hard] <commit>`: Reset current HEAD to the specified state.
