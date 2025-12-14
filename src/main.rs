@@ -10,7 +10,7 @@ use crate::plumbing::commits::{create_commit, get_current_commit, show_commit_lo
 use crate::plumbing::index::read_index;
 use crate::plumbing::objects::{ObjectType, read_object, store_object};
 use crate::plumbing::trees::write_tree_from_index;
-use crate::repository::initialize_repo;
+use crate::repository::{initialize_repo, Repository};
 use clap::{Parser, Subcommand};
 use std::fs;
 use std::io::Write;
@@ -94,6 +94,16 @@ enum Commands {
         /// Paths to reset (if provided, mode must be mixed (default))
         #[arg(last = true)]
         paths: Vec<String>,
+    },
+    /// Show differences between two commits
+    Diff {
+        /// First commit hash
+        hash_a: String,
+        /// Second commit hash
+        hash_b: String,
+        /// Show diffstat instead of patch
+        #[arg(long)]
+        stat: bool,
     },
 }
 
@@ -198,6 +208,10 @@ fn main() -> Result<(), GritError> {
 
                 commands::reset::reset(&commit_hash, mode, Path::new("."))?;
             }
+        }
+        Commands::Diff { hash_a, hash_b, stat } => {
+            let repo = Repository::new(Path::new("."));
+            commands::diff::run_diff_command(&repo, &hash_a, &hash_b, stat)?;
         }
     };
     Ok(())

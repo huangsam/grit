@@ -39,6 +39,22 @@ pub struct Object {
     pub content: Vec<u8>,
 }
 
+/// Represents a parsed Git tree object.
+#[derive(Debug, Clone)]
+pub struct Tree {
+    pub entries: Vec<crate::plumbing::checkout::TreeEntry>,
+}
+
+/// Represents a parsed Git commit object.
+#[derive(Debug, Clone)]
+pub struct Commit {
+    pub tree_hash: String,
+    pub parent_hashes: Vec<String>,
+    pub author: String,
+    pub committer: String,
+    pub message: String,
+}
+
 /// Stores an object in the Git object database using content-addressable storage.
 /// This is the core function that implements Git's CAS mechanism.
 ///
@@ -213,6 +229,70 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, GritError> {
         .put(hash.to_string(), object.clone());
 
     Ok(object)
+}
+
+/// Reads and parses a tree object from the repository.
+pub fn read_tree(repo: &crate::repository::Repository, hash: &str) -> Result<Tree, GritError> {
+    let object = read_object(hash, &repo.root)?;
+    if object.obj_type != ObjectType::Tree {
+        return Err(GritError::CorruptObject("Expected tree object".to_string()));
+    }
+    let entries = crate::plumbing::checkout::parse_tree_entries(&object.content)?;
+    Ok(Tree { entries })
+}
+
+/// Reads a blob object and returns its content as a string.
+pub fn read_blob(repo: &crate::repository::Repository, hash: &str) -> Result<String, GritError> {
+    let object = read_object(hash, &repo.root)?;
+    if object.obj_type != ObjectType::Blob {
+        return Err(GritError::CorruptObject("Expected blob object".to_string()));
+    }
+    String::from_utf8(object.content).map_err(|_| GritError::CorruptObject("Invalid UTF-8 in blob".to_string()))
+}
+
+/// Reads and parses a commit object from the repository.
+pub fn read_commit(repo: &crate::repository::Repository, hash: &str) -> Result<Commit, GritError> {
+    let object = read_object(hash, &repo.root)?;
+    if object.obj_type != ObjectType::Commit {
+        return Err(GritError::CorruptObject("Expected commit object".to_string()));
+    }
+    let content = String::from_utf8_lossy(&object.content);
+    parse_commit(&content)
+}
+
+fn parse_commit(content: &str) -> Result<Commit, GritError> {
+    let mut lines = content.lines();
+    let mut tree_hash = None;
+    let mut parent_hashes = Vec::new();
+    let mut author = None;
+    let mut committer = None;
+    let mut message = String::new();
+    let mut in_message = false;
+
+    for line in lines {
+        if in_message {
+            message.push_str(line);
+            message.push('\n');
+        } else if line.is_empty() {
+            in_message = true;
+        } else if let Some(t) = line.strip_prefix("tree ") {
+            tree_hash = Some(t.to_string());
+        } else if let Some(p) = line.strip_prefix("parent ") {
+            parent_hashes.push(p.to_string());
+        } else if let Some(a) = line.strip_prefix("author ") {
+            author = Some(a.to_string());
+        } else if let Some(c) = line.strip_prefix("committer ") {
+            committer = Some(c.to_string());
+        }
+    }
+
+    Ok(Commit {
+        tree_hash: tree_hash.ok_or_else(|| GritError::CorruptObject("Missing tree in commit".to_string()))?,
+        parent_hashes,
+        author: author.ok_or_else(|| GritError::CorruptObject("Missing author in commit".to_string()))?,
+        committer: committer.ok_or_else(|| GritError::CorruptObject("Missing committer in commit".to_string()))?,
+        message: message.trim().to_string(),
+    })
 }
 
 #[cfg(test)]

@@ -6,6 +6,7 @@
 
 pub mod checkout;
 pub mod commits;
+pub mod diff;
 pub mod index;
 pub mod objects;
 pub mod trees;

@@ -6,7 +6,22 @@
 
 use crate::error::GritError;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// Represents a Grit repository with its root directory.
+#[derive(Debug, Clone)]
+pub struct Repository {
+    pub root: PathBuf,
+}
+
+impl Repository {
+    /// Creates a new Repository instance for the given root path.
+    pub fn new(root: &Path) -> Self {
+        Repository {
+            root: root.to_path_buf(),
+        }
+    }
+}
 
 /// Initializes a new Grit repository by creating the standard .grit directory structure.
 /// This function sets up the basic directories and files needed for a Grit repository
