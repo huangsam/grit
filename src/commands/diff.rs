@@ -1,6 +1,7 @@
 //! Implementation of the `grit diff` porcelain command
 //!
 //! This module implements the `grit diff` command for comparing commits.
+
 use std::path::Path;
 
 use crate::error::GritError;

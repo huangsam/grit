@@ -1,6 +1,7 @@
 //! Core diff algorithm (Myers)
 //!
 //! This module implements the core diff functionality using the Myers algorithm.
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use hex;

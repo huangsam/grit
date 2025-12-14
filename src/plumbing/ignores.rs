@@ -1,6 +1,7 @@
 //! Load and match .gritignore patterns
 //!
 //! This module handles loading ignore patterns from .gritignore files and matching them.
+
 use std::fs;
 use std::path::Path;
 

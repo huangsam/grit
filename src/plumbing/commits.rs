@@ -1,6 +1,7 @@
 //! Create commits, manage refs/history
 //!
 //! This module handles creating commit objects and managing references and history.
+
 use crate::error::GritError;
 use crate::plumbing::objects::{ObjectType, store_object};
 use std::fs;

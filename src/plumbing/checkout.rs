@@ -1,6 +1,7 @@
 //! Restore working dir from snapshots
 //!
 //! This module handles checking out trees or commits to the working directory.
+
 use crate::cache;
 use crate::error::GritError;
 use crate::plumbing::objects::{ObjectType, read_object};
