@@ -38,18 +38,6 @@
 //! - Validates repository integrity before operations
 //! - Prevents accidental initialization in existing repos
 //! - Handles concurrent access safely
-//!
-//! ## Usage
-//!
-//! ```rust
-//! use grit::repository::{Repository, initialize_repo};
-//!
-//! // Initialize new repository
-//! initialize_repo(&Path::new("."))?;
-//!
-//! // Work with existing repository
-//! let repo = Repository::discover()?;
-//! ```
 
 use crate::error::GritError;
 use std::fs;
