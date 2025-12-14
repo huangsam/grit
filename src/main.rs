@@ -14,10 +14,12 @@ use crate::plumbing::trees::make_snapshot;
 use crate::plumbing::commits::{create_commit, update_ref, get_current_commit, show_commit_log};
 use crate::plumbing::checkout::restore_snapshot;
 
-/// Grit - A minimal Git plumbing clone in Rust
+/// Grit - A high-performance Git plumbing implementation in Rust
 #[derive(Parser)]
 #[command(name = "grit")]
-#[command(about = "Minimal plumbing implementation")]
+#[command(about = "A high-performance Git plumbing implementation in Rust")]
+#[command(version = "0.1.0")]
+#[command(author = "Grit Contributors")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
