@@ -79,6 +79,12 @@ pub struct Index {
     pub version: u32,
 }
 
+impl Default for Index {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Index {
     /// Create a new empty index
     pub fn new() -> Self {
@@ -151,7 +157,7 @@ pub fn create_index_entry(
     let (uid, gid) = (0, 0);
 
     let mode = if cfg!(unix) {
-        metadata.permissions().mode() as u32
+        metadata.permissions().mode()
     } else {
         // Default mode for non-Unix systems
         0o100644

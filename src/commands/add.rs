@@ -5,7 +5,6 @@
 use crate::error::GritError;
 use crate::plumbing::index::{read_index, write_index, create_index_entry};
 use crate::plumbing::objects::{store_object, ObjectType};
-use glob::Pattern;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -53,11 +52,10 @@ fn collect_files_to_add(patterns: &[String], repo_root: &Path) -> Result<HashSet
             let path = repo_root.join(pattern);
             if path.is_dir() {
                 collect_files_from_directory(&path, &mut files, repo_root)?;
-            } else if path.is_file() {
-                if let Ok(relative) = path.strip_prefix(repo_root) {
+            } else if path.is_file()
+                && let Ok(relative) = path.strip_prefix(repo_root) {
                     files.insert(relative.to_path_buf());
                 }
-            }
             // If not found, ignore (like Git does)
         }
     }
@@ -72,17 +70,16 @@ fn collect_all_files(dir: &Path, files: &mut HashSet<PathBuf>, repo_root: &Path)
         let path = entry.path();
 
         // Skip .grit directory
-        if path.file_name().map_or(false, |n| n == ".grit") {
+        if path.file_name().is_some_and(|n| n == ".grit") {
             continue;
         }
 
         if path.is_dir() {
             collect_all_files(&path, files, repo_root)?;
-        } else if path.is_file() {
-            if let Ok(relative) = path.strip_prefix(repo_root) {
+        } else if path.is_file()
+            && let Ok(relative) = path.strip_prefix(repo_root) {
                 files.insert(relative.to_path_buf());
             }
-        }
     }
 
     Ok(())
@@ -99,17 +96,16 @@ fn collect_files_from_directory(
         let path = entry.path();
 
         // Skip .grit directory
-        if path.file_name().map_or(false, |n| n == ".grit") {
+        if path.file_name().is_some_and(|n| n == ".grit") {
             continue;
         }
 
         if path.is_dir() {
             collect_files_from_directory(&path, files, repo_root)?;
-        } else if path.is_file() {
-            if let Ok(relative) = path.strip_prefix(repo_root) {
+        } else if path.is_file()
+            && let Ok(relative) = path.strip_prefix(repo_root) {
                 files.insert(relative.to_path_buf());
             }
-        }
     }
 
     Ok(())
