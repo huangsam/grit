@@ -131,11 +131,11 @@ pub fn get_file_deltas(content_a: &str, content_b: &str, path: &Path) -> (String
             deletions += del_count;
             insertions += add_count;
             output.push_str(&format!("@@ -{},{} +{},{} @@\n", start_i + 1, del_count, start_j + 1, add_count));
-            for k in start_i..i {
-                output.push_str(&format!("-{}\n", lines_a[k]));
+            for line in lines_a.iter().take(i).skip(start_i) {
+                output.push_str(&format!("-{}\n", line));
             }
-            for k in start_j..j {
-                output.push_str(&format!("+{}\n", lines_b[k]));
+            for line in lines_b.iter().take(j).skip(start_j) {
+                output.push_str(&format!("+{}\n", line));
             }
         }
     }
@@ -145,16 +145,16 @@ pub fn get_file_deltas(content_a: &str, content_b: &str, path: &Path) -> (String
         let del_count = lines_a.len() - i;
         deletions += del_count;
         output.push_str(&format!("@@ -{},{} +{},{} @@\n", i + 1, del_count, j + 1, 0));
-        for k in i..lines_a.len() {
-            output.push_str(&format!("-{}\n", lines_a[k]));
+        for line in lines_a.iter().skip(i) {
+            output.push_str(&format!("-{}\n", line));
         }
     }
     if j < lines_b.len() {
         let add_count = lines_b.len() - j;
         insertions += add_count;
         output.push_str(&format!("@@ -{},{} +{},{} @@\n", i + 1, 0, j + 1, add_count));
-        for k in j..lines_b.len() {
-            output.push_str(&format!("+{}\n", lines_b[k]));
+        for line in lines_b.iter().skip(j) {
+            output.push_str(&format!("+{}\n", line));
         }
     }
 

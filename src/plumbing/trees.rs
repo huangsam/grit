@@ -21,6 +21,117 @@ pub struct TreeEntry {
     pub hash: [u8; 20],
 }
 
+/// Creates a tree object from the Git index.
+///
+/// This function builds a tree structure reflecting the current state of the index.
+/// It recursively constructs tree objects for subdirectories and creates a single
+/// root tree object representing the entire staged file structure.
+///
+/// Used by `grit write-tree` and `grit commit` to create commits from the staging area.
+/// The resulting tree hash can be used as the root of a commit.
+///
+/// # Arguments
+///
+/// * `index` - The Git index containing the staged files and their metadata
+/// * `repo_root` - The root directory of the Git repository
+///
+/// # Returns
+///
+/// Returns `Ok(hash)` where `hash` is the 40-character hex SHA-1 hash of the created tree object.
+///
+/// # Errors
+///
+/// Returns `GritError` if:
+/// - Index entries cannot be processed
+/// - Tree objects cannot be stored
+/// - Hash decoding fails
+///
+/// # Algorithm
+///
+/// 1. Groups index entries by directory level
+/// 2. Recursively builds subtrees for directories
+/// 3. Creates blob references for files
+/// 4. Sorts entries lexicographically (Git standard)
+/// 5. Stores the final tree object
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::plumbing::index::read_index;
+/// use grit::plumbing::trees::write_tree_from_index;
+///
+/// let repo_root = Path::new("/path/to/repo");
+/// let index = read_index(repo_root).unwrap();
+/// let tree_hash = write_tree_from_index(&index, repo_root).unwrap();
+/// println!("Tree hash: {}", tree_hash);
+/// ```
+pub fn write_tree_from_index(index: &Index, repo_root: &Path) -> Result<String, GritError> {
+    build_tree_recursive(&index.entries, 0, repo_root)
+}
+
+fn build_tree_recursive(entries: &[IndexEntry], prefix_len: usize, repo_root: &Path) -> Result<String, GritError> {
+    let mut tree_entries = Vec::new();
+    let mut i = 0;
+
+    while i < entries.len() {
+        let entry = &entries[i];
+        let path = &entry.path;
+
+        // Get the path relative to the current level
+        let relative_path = &path[prefix_len..];
+
+        if let Some(slash_pos) = relative_path.find('/') {
+            // It's a directory
+            let dir_name = &relative_path[..slash_pos];
+            let full_dir_prefix = format!("{}{}/", &path[..prefix_len], dir_name);
+
+            // Find all entries in this directory
+            let mut j = i + 1;
+            while j < entries.len() && entries[j].path.starts_with(&full_dir_prefix) {
+                j += 1;
+            }
+
+            // Recurse to create subtree
+            let subtree_hash_hex = build_tree_recursive(&entries[i..j], full_dir_prefix.len(), repo_root)?;
+            let subtree_hash = hex::decode(&subtree_hash_hex)
+                .map_err(|_| GritError::CorruptObject("Invalid hash".to_string()))?;
+
+            tree_entries.push(TreeEntry {
+                mode: "40000".to_string(),
+                name: dir_name.to_string(),
+                hash: subtree_hash.try_into().unwrap(),
+            });
+
+            i = j;
+        } else {
+            // It's a file in this directory
+            tree_entries.push(TreeEntry {
+                mode: format!("{:o}", entry.mode),
+                name: relative_path.to_string(),
+                hash: entry.hash,
+            });
+            i += 1;
+        }
+    }
+
+    // Sort entries by name, treating directories as if they end with '/'
+    tree_entries.sort_by(|a, b| {
+        let a_name = if a.mode == "40000" { format!("{}/", a.name) } else { a.name.clone() };
+        let b_name = if b.mode == "40000" { format!("{}/", b.name) } else { b.name.clone() };
+        a_name.cmp(&b_name)
+    });
+
+    // Format and store the tree object
+    let mut content = Vec::new();
+    for entry in tree_entries {
+        content.extend_from_slice(format!("{} {}\0", entry.mode, entry.name).as_bytes());
+        content.extend_from_slice(&entry.hash);
+    }
+
+    store_object(&content, ObjectType::Tree, repo_root)
+}
+
 /// Creates a snapshot of a directory structure by recursively traversing it
 /// and storing all files and subdirectories as Git objects.
 ///
@@ -259,115 +370,4 @@ mod tests {
         // Should be empty (only contains .grit which is ignored)
         assert!(tree_object.content.is_empty());
     }
-}
-
-/// Creates a tree object from the Git index.
-///
-/// This function builds a tree structure reflecting the current state of the index.
-/// It recursively constructs tree objects for subdirectories and creates a single
-/// root tree object representing the entire staged file structure.
-///
-/// Used by `grit write-tree` and `grit commit` to create commits from the staging area.
-/// The resulting tree hash can be used as the root of a commit.
-///
-/// # Arguments
-///
-/// * `index` - The Git index containing the staged files and their metadata
-/// * `repo_root` - The root directory of the Git repository
-///
-/// # Returns
-///
-/// Returns `Ok(hash)` where `hash` is the 40-character hex SHA-1 hash of the created tree object.
-///
-/// # Errors
-///
-/// Returns `GritError` if:
-/// - Index entries cannot be processed
-/// - Tree objects cannot be stored
-/// - Hash decoding fails
-///
-/// # Algorithm
-///
-/// 1. Groups index entries by directory level
-/// 2. Recursively builds subtrees for directories
-/// 3. Creates blob references for files
-/// 4. Sorts entries lexicographically (Git standard)
-/// 5. Stores the final tree object
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use std::path::Path;
-/// use grit::plumbing::index::read_index;
-/// use grit::plumbing::trees::write_tree_from_index;
-///
-/// let repo_root = Path::new("/path/to/repo");
-/// let index = read_index(repo_root).unwrap();
-/// let tree_hash = write_tree_from_index(&index, repo_root).unwrap();
-/// println!("Tree hash: {}", tree_hash);
-/// ```
-pub fn write_tree_from_index(index: &Index, repo_root: &Path) -> Result<String, GritError> {
-    build_tree_recursive(&index.entries, 0, repo_root)
-}
-
-fn build_tree_recursive(entries: &[IndexEntry], prefix_len: usize, repo_root: &Path) -> Result<String, GritError> {
-    let mut tree_entries = Vec::new();
-    let mut i = 0;
-
-    while i < entries.len() {
-        let entry = &entries[i];
-        let path = &entry.path;
-
-        // Get the path relative to the current level
-        let relative_path = &path[prefix_len..];
-
-        if let Some(slash_pos) = relative_path.find('/') {
-            // It's a directory
-            let dir_name = &relative_path[..slash_pos];
-            let full_dir_prefix = format!("{}{}/", &path[..prefix_len], dir_name);
-
-            // Find all entries in this directory
-            let mut j = i + 1;
-            while j < entries.len() && entries[j].path.starts_with(&full_dir_prefix) {
-                j += 1;
-            }
-
-            // Recurse to create subtree
-            let subtree_hash_hex = build_tree_recursive(&entries[i..j], full_dir_prefix.len(), repo_root)?;
-            let subtree_hash = hex::decode(&subtree_hash_hex)
-                .map_err(|_| GritError::CorruptObject("Invalid hash".to_string()))?;
-
-            tree_entries.push(TreeEntry {
-                mode: "40000".to_string(),
-                name: dir_name.to_string(),
-                hash: subtree_hash.try_into().unwrap(),
-            });
-
-            i = j;
-        } else {
-            // It's a file in this directory
-            tree_entries.push(TreeEntry {
-                mode: format!("{:o}", entry.mode),
-                name: relative_path.to_string(),
-                hash: entry.hash,
-            });
-            i += 1;
-        }
-    }
-
-    // Sort entries by name, treating directories as if they end with '/'
-    tree_entries.sort_by(|a, b| {
-        let a_name = if a.mode == "40000" { format!("{}/", a.name) } else { a.name.clone() };
-        let b_name = if b.mode == "40000" { format!("{}/", b.name) } else { b.name.clone() };
-        a_name.cmp(&b_name)
-    });
-
-    // Format and store the tree object
-    let mut content = Vec::new();
-    for entry in tree_entries {
-        content.extend_from_slice(format!("{} {}\0", entry.mode, entry.name).as_bytes());
-        content.extend_from_slice(&entry.hash);
-    }
-
-    store_object(&content, ObjectType::Tree, repo_root)
 }

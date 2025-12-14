@@ -203,6 +203,7 @@ pub fn get_current_commit(repo_root: &Path) -> Result<Option<String>, GritError>
 /// * `Ok(())` - If the log was displayed successfully
 /// * `Err(GritError)` - If reading commits or resolving references fails
 pub fn show_commit_log(start_hash: &str, oneline: bool, repo_root: &Path) -> Result<(), GritError> {
+    let repo = crate::repository::Repository::new(repo_root);
     let mut current_hash = if start_hash == "HEAD" {
         get_current_commit(repo_root)?
             .ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
@@ -211,34 +212,25 @@ pub fn show_commit_log(start_hash: &str, oneline: bool, repo_root: &Path) -> Res
     };
 
     loop {
-        let object = crate::plumbing::objects::read_object(&current_hash, repo_root)?;
-        if object.obj_type != ObjectType::Commit {
-            return Err(GritError::RepositoryError(format!(
-                "{} is not a commit",
-                current_hash
-            )));
-        }
-
-        let content = String::from_utf8_lossy(&object.content);
-        let (author, message) = parse_commit_content(&content);
+        let commit = crate::plumbing::objects::read_commit(&repo, &current_hash)?;
 
         if oneline {
             println!(
                 "{} {}",
                 &current_hash[..7],
-                message.lines().next().unwrap_or("")
+                commit.message.lines().next().unwrap_or("")
             );
         } else {
             println!("commit {}", current_hash);
-            println!("Author: {}", author);
+            println!("Author: {}", commit.author);
             println!();
-            println!("{}", message);
+            println!("{}", commit.message);
             println!();
         }
 
         // Find parent
-        if let Some(parent_line) = content.lines().find(|line| line.starts_with("parent ")) {
-            current_hash = parent_line[7..].to_string();
+        if let Some(parent) = commit.parent_hashes.first() {
+            current_hash = parent.clone();
         } else {
             break; // No more parents
         }
@@ -247,27 +239,7 @@ pub fn show_commit_log(start_hash: &str, oneline: bool, repo_root: &Path) -> Res
     Ok(())
 }
 
-/// Parses commit content to extract author and message.
-fn parse_commit_content(content: &str) -> (String, String) {
-    let mut author = String::new();
-    let mut message = String::new();
-    let mut in_message = false;
 
-    for line in content.lines() {
-        if let Some(stripped) = line.strip_prefix("author ") {
-            author = stripped.to_string();
-        } else if line.is_empty() && !in_message {
-            in_message = true;
-        } else if in_message {
-            if !message.is_empty() {
-                message.push('\n');
-            }
-            message.push_str(line);
-        }
-    }
-
-    (author, message)
-}
 
 #[cfg(test)]
 mod tests {
@@ -513,28 +485,7 @@ mod tests {
         assert!(update_ref("HEAD with spaces", test_hash, test_dir.path()).is_err());
     }
 
-    #[test]
-    fn test_parse_commit_content() {
-        let content = "tree abc123\nauthor Test User <test@example.com> 1234567890 +0000\ncommitter Test User <test@example.com> 1234567890 +0000\n\nThis is a test commit message\nwith multiple lines.";
 
-        let (author, message) = parse_commit_content(content);
-
-        assert_eq!(author, "Test User <test@example.com> 1234567890 +0000");
-        assert_eq!(
-            message,
-            "This is a test commit message\nwith multiple lines."
-        );
-    }
-
-    #[test]
-    fn test_parse_commit_content_minimal() {
-        let content = "tree abc123\nauthor Test <test@example.com> 1234567890 +0000\ncommitter Test <test@example.com> 1234567890 +0000\n\nSimple message";
-
-        let (author, message) = parse_commit_content(content);
-
-        assert_eq!(author, "Test <test@example.com> 1234567890 +0000");
-        assert_eq!(message, "Simple message");
-    }
 
     #[test]
     fn test_show_commit_log_no_commits() {

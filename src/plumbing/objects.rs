@@ -45,6 +45,8 @@ pub struct Tree {
     pub entries: Vec<crate::plumbing::checkout::TreeEntry>,
 }
 
+use std::fmt;
+
 /// Represents a parsed Git commit object.
 #[derive(Debug, Clone)]
 pub struct Commit {
@@ -53,6 +55,18 @@ pub struct Commit {
     pub author: String,
     pub committer: String,
     pub message: String,
+}
+
+impl fmt::Display for Commit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "tree {}", self.tree_hash)?;
+        for parent in &self.parent_hashes {
+            writeln!(f, "parent {}", parent)?;
+        }
+        writeln!(f, "author {}", self.author)?;
+        writeln!(f, "committer {}", self.committer)?;
+        writeln!(f, "\n{}", self.message)
+    }
 }
 
 /// Stores an object in the Git object database using content-addressable storage.
