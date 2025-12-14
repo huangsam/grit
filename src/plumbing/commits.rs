@@ -52,6 +52,51 @@ pub fn create_commit(tree_hash: &str, parent_hash: Option<&str>, message: &str, 
     Ok(hash)
 }
 
+/// Validates that a reference name is safe and follows Git conventions.
+///
+/// Git reference names must:
+/// - Not be empty
+/// - Not start or end with '/'
+/// - Not contain '..' or consecutive '/'
+/// - Not contain control characters or spaces
+/// - Not end with '.'
+/// - Be within reasonable length limits
+///
+/// This prevents path traversal attacks and ensures reference names are valid.
+fn validate_ref_name(ref_name: &str) -> Result<(), CrustError> {
+    if ref_name.is_empty() {
+        return Err(CrustError::RepositoryError("Reference name cannot be empty".to_string()));
+    }
+
+    if ref_name.starts_with('/') || ref_name.ends_with('/') {
+        return Err(CrustError::RepositoryError("Reference name cannot start or end with '/'".to_string()));
+    }
+
+    if ref_name.contains("..") {
+        return Err(CrustError::RepositoryError("Reference name cannot contain '..'".to_string()));
+    }
+
+    if ref_name.contains("//") {
+        return Err(CrustError::RepositoryError("Reference name cannot contain consecutive '/'".to_string()));
+    }
+
+    if ref_name.ends_with('.') {
+        return Err(CrustError::RepositoryError("Reference name cannot end with '.'".to_string()));
+    }
+
+    // Check for control characters and spaces
+    if ref_name.chars().any(|c| c.is_control() || c.is_whitespace()) {
+        return Err(CrustError::RepositoryError("Reference name cannot contain control characters or spaces".to_string()));
+    }
+
+    // Reasonable length limit
+    if ref_name.len() > 1024 {
+        return Err(CrustError::RepositoryError("Reference name too long".to_string()));
+    }
+
+    Ok(())
+}
+
 /// Updates a Git reference (like HEAD or a branch) to point to a new commit.
 /// References are essentially pointers to commits that track the current state
 /// of branches, HEAD, and other important commit references.
@@ -72,6 +117,8 @@ pub fn create_commit(tree_hash: &str, parent_hash: Option<&str>, message: &str, 
 /// # Errors
 /// * `RepositoryError` - If the reference path is invalid or write fails
 pub fn update_ref(ref_name: &str, hash: &str, repo_root: &Path) -> Result<(), CrustError> {
+    validate_ref_name(ref_name)?;
+
     let ref_path = repo_root.join(".crust").join(ref_name);
 
     // Ensure parent directories exist
@@ -162,7 +209,7 @@ mod tests {
 
         #[test]
         fn test_update_ref_with_valid_names(
-            ref_name in prop::string::string_regex(r"refs/(heads|tags)/[a-zA-Z0-9_.-]{1,100}").unwrap()
+            ref_name in prop::string::string_regex(r"refs/(heads|tags)/[a-zA-Z0-9_-]{1,100}").unwrap()
         ) {
             let test_dir = setup_test_repo();
             let hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -266,5 +313,69 @@ mod tests {
 
         let remote_content = fs::read_to_string(test_dir.path().join(".crust").join("refs").join("remotes").join("origin").join("main")).unwrap();
         assert_eq!(remote_content, format!("{}\n", test_hash));
+    }
+
+    #[test]
+    fn test_ref_name_validation() {
+        // Valid reference names
+        assert!(validate_ref_name("HEAD").is_ok());
+        assert!(validate_ref_name("refs/heads/main").is_ok());
+        assert!(validate_ref_name("refs/heads/feature-branch").is_ok());
+        assert!(validate_ref_name("refs/tags/v1.0.0").is_ok());
+        assert!(validate_ref_name("refs/remotes/origin/main").is_ok());
+        assert!(validate_ref_name("refs/heads/branch_with_underscores").is_ok());
+        assert!(validate_ref_name("refs/heads/branch-with-dashes").is_ok());
+        assert!(validate_ref_name("refs/heads/branch.with.dots").is_ok());
+
+        // Invalid reference names - empty
+        assert!(validate_ref_name("").is_err());
+
+        // Invalid reference names - starts/ends with slash
+        assert!(validate_ref_name("/HEAD").is_err());
+        assert!(validate_ref_name("HEAD/").is_err());
+        assert!(validate_ref_name("/refs/heads/main").is_err());
+        assert!(validate_ref_name("refs/heads/main/").is_err());
+
+        // Invalid reference names - contains '..'
+        assert!(validate_ref_name("../../../etc/passwd").is_err());
+        assert!(validate_ref_name("refs/heads/../../etc/shadow").is_err());
+        assert!(validate_ref_name("HEAD..").is_err());
+        assert!(validate_ref_name("..HEAD").is_err());
+
+        // Invalid reference names - consecutive slashes
+        assert!(validate_ref_name("refs//heads/main").is_err());
+        assert!(validate_ref_name("refs/heads//main").is_err());
+        assert!(validate_ref_name("HEAD//").is_err());
+
+        // Invalid reference names - ends with '.'
+        assert!(validate_ref_name("HEAD.").is_err());
+        assert!(validate_ref_name("refs/heads/main.").is_err());
+        assert!(validate_ref_name(".").is_err());
+
+        // Invalid reference names - control characters or spaces
+        assert!(validate_ref_name("HEAD with spaces").is_err());
+        assert!(validate_ref_name("refs/heads/main\t").is_err());
+        assert!(validate_ref_name("refs/heads/main\n").is_err());
+        assert!(validate_ref_name("refs/heads/main\x00").is_err());
+
+        // Invalid reference names - too long
+        let long_name = "refs/heads/".to_string() + &"a".repeat(1025);
+        assert!(validate_ref_name(&long_name).is_err());
+    }
+
+    #[test]
+    fn test_update_ref_validation() {
+        let test_dir = setup_test_repo();
+        let test_hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        // Valid reference names should work
+        assert!(update_ref("HEAD", test_hash, test_dir.path()).is_ok());
+        assert!(update_ref("refs/heads/main", test_hash, test_dir.path()).is_ok());
+
+        // Invalid reference names should be rejected
+        assert!(update_ref("", test_hash, test_dir.path()).is_err());
+        assert!(update_ref("../../../etc/passwd", test_hash, test_dir.path()).is_err());
+        assert!(update_ref("refs/heads/main.", test_hash, test_dir.path()).is_err());
+        assert!(update_ref("HEAD with spaces", test_hash, test_dir.path()).is_err());
     }
 }

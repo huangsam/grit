@@ -1,3 +1,4 @@
 /target
 .crust/
+proptest-regressions/
 test_*/

@@ -1,0 +1,110 @@
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use crust::plumbing::objects::{store_object, read_object, ObjectType};
+use crust::repository::initialize_repo;
+use tempfile::TempDir;
+
+fn setup_test_repo() -> TempDir {
+    let temp_dir = TempDir::new().unwrap();
+    initialize_repo(temp_dir.path()).unwrap();
+    temp_dir
+}
+
+fn bench_store_object_small(c: &mut Criterion) {
+    let test_dir = setup_test_repo();
+    let content = b"Hello, World! This is a small test file.";
+
+    c.bench_function("store_object_small", |b| {
+        b.iter(|| {
+            let hash = store_object(black_box(content), ObjectType::Blob, test_dir.path()).unwrap();
+            black_box(hash);
+        })
+    });
+}
+
+fn bench_store_object_medium(c: &mut Criterion) {
+    let test_dir = setup_test_repo();
+    let content = vec![b'A'; 100 * 1024]; // 100KB
+
+    c.bench_function("store_object_medium", |b| {
+        b.iter(|| {
+            let hash = store_object(black_box(&content), ObjectType::Blob, test_dir.path()).unwrap();
+            black_box(hash);
+        })
+    });
+}
+
+fn bench_store_object_large(c: &mut Criterion) {
+    let test_dir = setup_test_repo();
+    let content = vec![b'B'; 1024 * 1024]; // 1MB
+
+    c.bench_function("store_object_large", |b| {
+        b.iter(|| {
+            let hash = store_object(black_box(&content), ObjectType::Blob, test_dir.path()).unwrap();
+            black_box(hash);
+        })
+    });
+}
+
+fn bench_read_object_small(c: &mut Criterion) {
+    let test_dir = setup_test_repo();
+    let content = b"Hello, World! This is a small test file.";
+    let hash = store_object(content, ObjectType::Blob, test_dir.path()).unwrap();
+
+    c.bench_function("read_object_small", |b| {
+        b.iter(|| {
+            let obj = read_object(black_box(&hash), test_dir.path()).unwrap();
+            black_box(obj);
+        })
+    });
+}
+
+fn bench_read_object_medium(c: &mut Criterion) {
+    let test_dir = setup_test_repo();
+    let content = vec![b'A'; 100 * 1024]; // 100KB
+    let hash = store_object(&content, ObjectType::Blob, test_dir.path()).unwrap();
+
+    c.bench_function("read_object_medium", |b| {
+        b.iter(|| {
+            let obj = read_object(black_box(&hash), test_dir.path()).unwrap();
+            black_box(obj);
+        })
+    });
+}
+
+fn bench_read_object_large(c: &mut Criterion) {
+    let test_dir = setup_test_repo();
+    let content = vec![b'B'; 1024 * 1024]; // 1MB
+    let hash = store_object(&content, ObjectType::Blob, test_dir.path()).unwrap();
+
+    c.bench_function("read_object_large", |b| {
+        b.iter(|| {
+            let obj = read_object(black_box(&hash), test_dir.path()).unwrap();
+            black_box(obj);
+        })
+    });
+}
+
+fn bench_store_read_roundtrip(c: &mut Criterion) {
+    let test_dir = setup_test_repo();
+
+    c.bench_function("store_read_roundtrip_10kb", |b| {
+        b.iter(|| {
+            let content = vec![b'C'; 10 * 1024];
+            let hash = store_object(black_box(&content), ObjectType::Blob, test_dir.path()).unwrap();
+            let obj = read_object(black_box(&hash), test_dir.path()).unwrap();
+            black_box(obj);
+        })
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_store_object_small,
+    bench_store_object_medium,
+    bench_store_object_large,
+    bench_read_object_small,
+    bench_read_object_medium,
+    bench_read_object_large,
+    bench_store_read_roundtrip
+);
+criterion_main!(benches);
