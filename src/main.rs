@@ -18,7 +18,7 @@ use crate::plumbing::checkout::restore_snapshot;
 #[derive(Parser)]
 #[command(name = "grit")]
 #[command(about = "A high-performance Git plumbing implementation in Rust")]
-#[command(version = "0.1.0")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(author = "Grit Contributors")]
 struct Cli {
     #[command(subcommand)]
