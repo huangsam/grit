@@ -3,6 +3,7 @@
 //! This module handles staging files for the next commit by updating the Git index.
 
 use crate::error::GritError;
+use crate::plumbing::ignores::{load_ignore_patterns, is_ignored};
 use crate::plumbing::index::{create_index_entry, read_index, write_index};
 use crate::plumbing::objects::{ObjectType, store_object};
 use std::collections::HashSet;
@@ -57,8 +58,17 @@ pub fn add_files(files: &[String], repo_root: &Path) -> Result<(), GritError> {
     // Read the current index
     let mut index = read_index(repo_root)?;
 
+    // Load ignore patterns
+    let ignore_patterns = load_ignore_patterns(repo_root);
+
     // Collect all files to add
     let files_to_add = collect_files_to_add(files, repo_root)?;
+
+    // Filter out ignored files
+    let files_to_add: HashSet<PathBuf> = files_to_add
+        .into_iter()
+        .filter(|path| !is_ignored(path, &ignore_patterns))
+        .collect();
 
     // Add each file to the index
     for file_path in files_to_add {
@@ -120,8 +130,8 @@ fn collect_all_files(
         let entry = entry?;
         let path = entry.path();
 
-        // Skip .grit directory
-        if path.file_name().is_some_and(|n| n == ".grit") {
+        // Skip .grit directory and .gritignore file
+        if path.file_name().is_some_and(|n| n == ".grit" || n == ".gritignore") {
             continue;
         }
 
@@ -147,8 +157,8 @@ fn collect_files_from_directory(
         let entry = entry?;
         let path = entry.path();
 
-        // Skip .grit directory
-        if path.file_name().is_some_and(|n| n == ".grit") {
+        // Skip .grit directory and .gritignore file
+        if path.file_name().is_some_and(|n| n == ".grit" || n == ".gritignore") {
             continue;
         }
 
@@ -272,5 +282,49 @@ mod tests {
         assert!(paths.contains("file1.rs"));
         assert!(paths.contains("file2.rs"));
         assert!(!paths.contains("file3.txt"));
+    }
+
+    #[test]
+    fn test_add_with_ignores() {
+        let temp_dir = setup_test_repo();
+        let repo_root = temp_dir.path();
+
+        // Create .gritignore
+        fs::write(repo_root.join(".gritignore"), "*.tmp\nbuild/\n").unwrap();
+
+        // Create test files
+        fs::write(repo_root.join("file1.txt"), b"text content").unwrap();
+        fs::write(repo_root.join("file2.tmp"), b"temp content").unwrap();
+        fs::create_dir(repo_root.join("build")).unwrap();
+        fs::write(repo_root.join("build/output.txt"), b"build content").unwrap();
+
+        // Add all files
+        add_files(&[".".to_string()], repo_root).unwrap();
+
+        // Check that ignored files were not added
+        let index = read_index(repo_root).unwrap();
+        assert_eq!(index.entries.len(), 1); // Only file1.txt should be added
+        assert_eq!(index.entries[0].path, "file1.txt");
+    }
+
+    #[test]
+    fn test_add_ignores_respected_with_glob() {
+        let temp_dir = setup_test_repo();
+        let repo_root = temp_dir.path();
+
+        // Create .gritignore
+        fs::write(repo_root.join(".gritignore"), "*.tmp").unwrap();
+
+        // Create test files
+        fs::write(repo_root.join("file1.txt"), b"text content").unwrap();
+        fs::write(repo_root.join("file2.tmp"), b"temp content").unwrap();
+        fs::write(repo_root.join("file3.tmp"), b"more temp").unwrap();
+
+        // Add all .tmp files (but they should be ignored)
+        add_files(&["*.tmp".to_string()], repo_root).unwrap();
+
+        // Check that no files were added (all .tmp files ignored)
+        let index = read_index(repo_root).unwrap();
+        assert_eq!(index.entries.len(), 0);
     }
 }

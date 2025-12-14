@@ -6,6 +6,7 @@
 use crate::error::GritError;
 use crate::plumbing::checkout::parse_tree_entries;
 use crate::plumbing::commits::get_current_commit;
+use crate::plumbing::ignores::{load_ignore_patterns, is_ignored};
 use crate::plumbing::index::read_index;
 use crate::plumbing::objects::read_object;
 use sha1::{Digest, Sha1};
@@ -70,6 +71,9 @@ pub fn show_status(repo_root: &Path) -> Result<(), GritError> {
     // Read the current index
     let index = read_index(repo_root)?;
 
+    // Load ignore patterns
+    let ignore_patterns = load_ignore_patterns(repo_root);
+
     // Get the HEAD commit tree entries
     let head_tree_entries = get_head_tree_entries(repo_root)?;
 
@@ -123,6 +127,9 @@ pub fn show_status(repo_root: &Path) -> Result<(), GritError> {
             untracked_files.push(path.clone());
         }
     }
+
+    // Filter out ignored untracked files
+    untracked_files.retain(|path| !is_ignored(Path::new(path), &ignore_patterns));
 
     // Display results
     if !staged_changes.is_empty() {
@@ -264,6 +271,25 @@ mod tests {
         fs::write(repo_root.join("untracked.txt"), b"content").unwrap();
 
         // Status should show untracked file
+        show_status(repo_root).unwrap();
+    }
+
+    #[test]
+    fn test_status_with_ignored_files() {
+        let temp_dir = setup_test_repo();
+        let repo_root = temp_dir.path();
+
+        // Create .gritignore
+        fs::write(repo_root.join(".gritignore"), "*.tmp\nbuild/\n").unwrap();
+
+        // Create files (some ignored, some not)
+        fs::write(repo_root.join("tracked.txt"), b"content").unwrap();
+        fs::write(repo_root.join("untracked.txt"), b"content").unwrap();
+        fs::write(repo_root.join("ignored.tmp"), b"temp content").unwrap();
+        fs::create_dir(repo_root.join("build")).unwrap();
+        fs::write(repo_root.join("build/file.txt"), b"build content").unwrap();
+
+        // Status should show only untracked.txt, not the ignored files
         show_status(repo_root).unwrap();
     }
 }
