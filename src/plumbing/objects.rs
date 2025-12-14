@@ -56,9 +56,32 @@ pub enum ObjectType {
     Commit,
 }
 
-/// Represents a Git object with its type and content.
-/// This is the core data structure for storing and retrieving objects from the repository.
-/// Objects are immutable once created - they are identified by their content hash.
+/// Core data structure representing any Git object (blob, tree, or commit).
+///
+/// Git objects are the fundamental building blocks of a Git repository. Each object
+/// is identified by its SHA-1 hash and contains typed content. Objects are immutable
+/// once created - any change produces a new object with a different hash.
+///
+/// # Fields
+///
+/// * `obj_type` - The type of object (Blob for file content, Tree for directories, Commit for snapshots)
+/// * `content` - The raw binary content of the object, format depends on type
+///
+/// # Object Types
+///
+/// - **Blob**: Raw file content, `content` is the file data
+/// - **Tree**: Directory structure, `content` is binary tree entry data
+/// - **Commit**: Snapshot metadata, `content` is commit message and references
+///
+/// # Immutability
+///
+/// Once an object is created and stored, it cannot be modified. This ensures that
+/// hashes remain stable and content integrity is maintained throughout Git's history.
+///
+/// # Storage
+///
+/// Objects are compressed and stored in `.grit/objects/` directory using zlib compression.
+/// The SHA-1 hash determines the storage path: `objects/[first-2-chars]/[remaining-38-chars]`
 #[derive(Debug, Clone)]
 pub struct Object {
     /// The type of this object (Blob, Tree, or Commit)
@@ -69,7 +92,27 @@ pub struct Object {
     pub content: Vec<u8>,
 }
 
-/// Represents a parsed Git tree object.
+/// Represents a parsed Git tree object containing directory entries.
+///
+/// A tree object represents a directory snapshot in Git, containing references to
+/// all files and subdirectories within that directory. Unlike the raw binary format,
+/// this structure provides easy programmatic access to tree contents.
+///
+/// # Fields
+///
+/// * `entries` - Vector of `TreeEntry` objects representing files and subdirectories
+///
+/// # Git Tree Objects
+///
+/// Tree objects are created from the index during commits and represent the directory
+/// structure at a point in time. They form the backbone of Git's snapshot system,
+/// allowing efficient representation of directory hierarchies.
+///
+/// # Usage
+///
+/// Tree objects are used during diff operations, checkout, and when traversing
+/// repository history. They provide the directory structure information needed
+/// to reconstruct working directories from commits.
 #[derive(Debug, Clone)]
 pub struct Tree {
     pub entries: Vec<crate::plumbing::checkout::TreeEntry>,
@@ -77,7 +120,37 @@ pub struct Tree {
 
 use std::fmt;
 
-/// Represents a parsed Git commit object.
+/// Represents a parsed Git commit object containing snapshot metadata.
+///
+/// A commit object represents a snapshot of the repository at a specific point in time.
+/// It contains references to the tree object (directory structure), parent commits,
+/// author/committer information, and the commit message. Commits form the history
+/// chain in Git repositories.
+///
+/// # Fields
+///
+/// * `tree_hash` - SHA-1 hash of the tree object representing the directory structure
+/// * `parent_hashes` - Vector of parent commit hashes (empty for initial commit)
+/// * `author` - Author name and email with timestamp
+/// * `committer` - Committer name and email with timestamp (may differ from author)
+/// * `message` - The commit message describing the changes
+///
+/// # Git Commit Format
+///
+/// Commits are stored in text format with headers followed by the message:
+/// ```text
+/// tree [tree_hash]
+/// parent [parent_hash]  (repeated for multiple parents)
+/// author [name] <[email]> [timestamp] [timezone]
+/// committer [name] <[email]> [timestamp] [timezone]
+///
+/// [commit message]
+/// ```
+///
+/// # Usage
+///
+/// Commit objects are used to traverse repository history, create branches,
+/// and understand the evolution of the codebase over time.
 #[derive(Debug, Clone)]
 pub struct Commit {
     pub tree_hash: String,

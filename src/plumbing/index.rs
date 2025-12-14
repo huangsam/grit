@@ -55,7 +55,28 @@ const INDEX_SIGNATURE: &[u8; 4] = b"DIRC";
 /// Current Git index version
 const INDEX_VERSION: u32 = 2;
 
-/// Index entry representing a staged file
+/// Represents a single entry in the Git index (staging area).
+///
+/// An index entry contains all the metadata about a file that has been staged for commit.
+/// This includes timestamps, file attributes, permissions, and the content hash.
+/// The index entry format is compatible with Git's binary index format.
+///
+/// # Fields
+///
+/// * `ctime_sec` / `ctime_nsec` - File creation time with nanosecond precision
+/// * `mtime_sec` / `mtime_nsec` - File modification time with nanosecond precision
+/// * `dev` / `ino` - Device and inode numbers for hard link detection
+/// * `mode` - File permissions/mode (Unix-style)
+/// * `uid` / `gid` - User and group IDs (Unix-specific)
+/// * `size` - File size in bytes
+/// * `hash` - SHA-1 hash of the staged file content
+/// * `flags` - Git index flags (staging state, name length, etc.)
+/// * `path` - Relative path from repository root
+///
+/// # Git Compatibility
+///
+/// This structure exactly matches Git's index entry format, ensuring full compatibility
+/// with Git repositories and tools. The binary serialization follows Git's specification.
 #[derive(Debug, Clone, PartialEq)]
 pub struct IndexEntry {
     /// Creation time (seconds since Unix epoch)
@@ -86,7 +107,27 @@ pub struct IndexEntry {
     pub path: String,
 }
 
-/// Git index containing all staged entries
+/// Main structure representing the Git index (staging area).
+///
+/// The index is a binary file that tracks the state of files staged for the next commit.
+/// It contains a sorted collection of index entries representing all staged files.
+/// The index serves as the bridge between the working directory and Git commits.
+///
+/// # Fields
+///
+/// * `entries` - Vector of `IndexEntry` objects, sorted by file path
+/// * `version` - Index format version (currently 2, compatible with Git)
+///
+/// # Operations
+///
+/// The index supports common operations like adding files, removing files, and updating
+/// existing entries. All modifications maintain the sorted order for efficient lookups.
+/// The index is persisted to disk in Git's binary format for compatibility.
+///
+/// # Git Compatibility
+///
+/// This implementation is fully compatible with Git's index format, allowing Grit
+/// repositories to be read by Git and vice versa.
 #[derive(Debug, Clone)]
 pub struct Index {
     /// Index entries sorted by path

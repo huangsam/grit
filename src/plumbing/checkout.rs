@@ -137,7 +137,28 @@ fn restore_tree(tree_hash: &str, repo_root: &Path, current_path: &Path) -> Resul
     Ok(())
 }
 
-/// Represents a tree entry parsed from tree object content
+/// Represents a single entry in a Git tree object parsed from binary content.
+///
+/// Tree entries contain the essential metadata needed to reconstruct directory structures
+/// from Git's tree objects. Each entry represents either a file (blob) or subdirectory (tree).
+/// The binary format is compact and optimized for Git's internal storage.
+///
+/// # Fields
+///
+/// * `mode` - File mode as string ("100644" for files, "40000" for directories, etc.)
+/// * `name` - The filename or directory name (basename only, not full path)
+/// * `hash` - 20-byte SHA-1 hash of the referenced object (blob or tree)
+///
+/// # Git Tree Format
+///
+/// Tree objects store entries in the format: `[mode] [space] [name] [null] [20-byte hash]`
+/// This structure represents one parsed entry from that binary format.
+///
+/// # Usage
+///
+/// Tree entries are used during checkout operations to recreate the working directory
+/// structure from tree objects. They provide the information needed to create files
+/// and directories with correct permissions and content references.
 #[derive(Debug, Clone)]
 pub struct TreeEntry {
     pub mode: String,

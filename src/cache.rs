@@ -34,8 +34,29 @@ use lru::LruCache;
 use std::num::NonZeroUsize;
 use std::sync::Mutex;
 
-/// Global cache for Git objects (blobs, trees, commits)
-/// Uses LRU eviction policy to keep recently accessed objects in memory
+/// High-performance LRU cache for Git objects to improve repository performance.
+///
+/// The object cache stores recently accessed Git objects (blobs, trees, commits) in memory
+/// to avoid expensive disk I/O and decompression operations. It uses a Least Recently Used
+/// (LRU) eviction policy to automatically manage memory usage.
+///
+/// # Performance Benefits
+///
+/// - **Reduced I/O**: Avoids reading objects from disk on repeated access
+/// - **Faster Decompression**: Keeps decompressed objects in memory
+/// - **Memory Efficient**: Automatically evicts least recently used objects
+/// - **Thread Safe**: Uses Mutex for safe concurrent access
+///
+/// # Usage
+///
+/// The cache is typically accessed through the global `CACHE_MANAGER` instance.
+/// Objects are automatically cached when read and retrieved from cache on subsequent access.
+/// The cache size should be tuned based on available memory and repository size.
+///
+/// # Implementation Details
+///
+/// Uses the `lru` crate for efficient LRU cache implementation with O(1) operations.
+/// Thread safety is provided by `std::sync::Mutex` for concurrent access.
 pub struct ObjectCache {
     cache: Mutex<LruCache<String, Object>>,
 }
@@ -87,8 +108,28 @@ impl ObjectCache {
     }
 }
 
-/// Global cache for computed SHA-1 hashes
-/// Caches hash computations to avoid recomputing the same content
+/// LRU cache for SHA-1 hash computations to avoid redundant cryptographic operations.
+///
+/// Hash computations are expensive operations, especially for large files. This cache
+/// stores mappings from content hashes to object hashes to avoid recomputing SHA-1
+/// for the same content multiple times.
+///
+/// # Performance Optimization
+///
+/// - **Avoids Redundant Computation**: Same content always produces same hash
+/// - **Memory Efficient**: Caches hash-to-hash mappings, not full content
+/// - **Thread Safe**: Safe for concurrent access across multiple operations
+///
+/// # Cache Key
+///
+/// Uses a composite hash of `(object_type, content_hash)` as the cache key to
+/// distinguish between different types of objects with identical content.
+///
+/// # Usage
+///
+/// Automatically used during object storage operations. When storing an object,
+/// the cache is checked first to see if the same content was already hashed.
+/// This is particularly beneficial for large repositories with repeated content.
 pub struct HashCache {
     cache: Mutex<LruCache<String, String>>, // content hash -> object hash
 }
@@ -125,8 +166,29 @@ impl HashCache {
     }
 }
 
-/// Global cache for parsed tree structures
-/// Caches parsed tree entries to avoid repeated parsing
+/// LRU cache for parsed Git tree structures to accelerate directory operations.
+///
+/// Tree parsing involves decoding Git's binary tree format, which can be expensive
+/// for large directories. This cache stores already-parsed tree entries in memory
+/// to avoid repeated parsing operations during checkout, diff, and status operations.
+///
+/// # Performance Benefits
+///
+/// - **Faster Checkout**: Avoids re-parsing trees during directory restoration
+/// - **Efficient Diff**: Cached trees speed up recursive tree comparisons
+/// - **Memory Conscious**: Stores parsed structures, not raw binary data
+///
+/// # Cache Strategy
+///
+/// Uses tree object hashes as cache keys since identical trees will have identical
+/// content and thus identical hashes. This provides perfect cache hit rates for
+/// unchanged directory structures.
+///
+/// # Usage
+///
+/// Automatically populated during tree reading operations and consulted during
+/// subsequent tree access. Particularly beneficial for repositories with deep
+/// directory structures or frequent branch switching.
 pub struct TreeCache {
     cache: Mutex<LruCache<String, Vec<TreeEntry>>>,
 }
@@ -181,7 +243,36 @@ impl TreeCache {
     }
 }
 
-/// Global cache manager that coordinates all caches
+/// Central coordinator for all Grit caching systems with optimized default configurations.
+///
+/// The cache manager provides a unified interface to all caching subsystems in Grit,
+/// including object storage, hash computation, and tree parsing caches. It manages
+/// cache lifecycle, sizing, and provides sensible defaults tuned for typical Git usage.
+///
+/// # Cache Components
+///
+/// - **Object Cache**: Stores decompressed Git objects (blobs, trees, commits)
+/// - **Hash Cache**: Caches expensive SHA-1 computations
+/// - **Tree Cache**: Stores parsed tree structures for fast directory access
+///
+/// # Default Configuration
+///
+/// Default capacities are optimized for typical repository usage:
+/// - Objects: 1000 (balance between memory usage and I/O reduction)
+/// - Hashes: 5000 (hash computation is expensive, cache aggressively)
+/// - Trees: 2000 (tree parsing is costly but trees are smaller than objects)
+///
+/// # Customization
+///
+/// Cache sizes can be customized for specific use cases:
+/// - **Large repositories**: Increase all capacities
+/// - **Memory constrained**: Decrease capacities proportionally
+/// - **Hash-heavy workloads**: Increase hash cache size
+/// - **Deep directory structures**: Increase tree cache size
+///
+/// # Thread Safety
+///
+/// All caches are thread-safe and can be accessed concurrently from multiple operations.
 pub struct CacheManager {
     pub object_cache: ObjectCache,
     pub hash_cache: HashCache,

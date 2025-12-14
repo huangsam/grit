@@ -43,7 +43,33 @@ use crate::error::GritError;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Represents a Grit repository with its root directory.
+/// Core structure representing a Grit repository and its configuration.
+///
+/// A Repository instance encapsulates the root directory of a Grit repository
+/// and provides access to all repository operations. It serves as the main
+/// entry point for interacting with a Grit repository's objects, index, and refs.
+///
+/// # Fields
+///
+/// * `root` - The absolute path to the repository root directory (containing `.grit/`)
+///
+/// # Repository Structure
+///
+/// A Grit repository has the following directory structure:
+/// ```text
+/// .grit/
+/// ├── objects/     # Stored Git objects (blobs, trees, commits)
+/// ├── refs/        # References (branches, tags)
+/// │   └── heads/   # Branch references
+/// ├── index        # Binary staging area file
+/// └── HEAD         # Reference to current branch/commit
+/// ```
+///
+/// # Usage
+///
+/// Repository instances are created for specific directories and provide
+/// the context needed for all Git operations like reading objects, updating
+/// the index, and creating commits.
 #[derive(Debug, Clone)]
 pub struct Repository {
     pub root: PathBuf,
