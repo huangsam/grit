@@ -17,7 +17,6 @@ Grit follows Git's object model with a modular design:
 - **Objects**: Blobs (file content), Trees (directory structure), Commits (history snapshots).
 - **Index**: Fully compatible Git Index (staging area) implementation.
 - **Caching**: Multi-layer LRU system for hashes, decompressed objects, and parsed trees.
-- **Parallelism**: Rayon for tree operations on multi-core systems.
 
 ### Core Modules
 
@@ -66,7 +65,7 @@ Grit provides a mix of plumbing and porcelain operations:
 
 - **Core**: `clap` (CLI parsing), `flate2` (zlib compression), `sha1` (hashing), `hex` (hex encoding).
 - **FileSystem**: `glob` (pattern matching).
-- **Performance**: `rayon` (parallelism), `lru` (caching), `lazy_static` (statics).
+- **Performance**: `lru` (caching), `lazy_static` (statics).
 - **Dev**: `tempfile`, `proptest` (testing), `criterion` (benchmarking).
 
 ## Extending Grit
