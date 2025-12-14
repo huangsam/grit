@@ -401,7 +401,6 @@ dependencies = [
  "lazy_static",
  "lru",
  "proptest",
- "rayon",
  "sha1",
  "tempfile",
 ]

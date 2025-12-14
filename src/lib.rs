@@ -10,7 +10,6 @@
 //! Grit implements Git's object model with several performance optimizations:
 //!
 //! - Buffered I/O operations for efficient file handling
-//! - Parallel tree traversal using Rayon for multi-core utilization
 //! - LRU caching system for objects, hashes, and parsed trees
 //! - Advanced caching with thread-safe LRU eviction policies
 //!
