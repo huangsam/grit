@@ -1,3 +1,6 @@
+//! Create trees from Index (write-tree)
+//!
+//! This module handles creating tree objects from the index.
 use crate::error::GritError;
 use crate::plumbing::objects::{ObjectType, store_object};
 use crate::plumbing::index::{Index, IndexEntry};

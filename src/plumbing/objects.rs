@@ -1,3 +1,6 @@
+//! Store/read Git objects with compression
+//!
+//! This module handles storing and reading Git objects with zlib compression.
 use crate::cache;
 use crate::error::GritError;
 use flate2::Compression;
