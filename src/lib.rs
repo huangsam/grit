@@ -95,37 +95,8 @@
 //! Contributions should maintain the high-performance characteristics while
 //! ensuring compatibility with Git's specifications.
 
-/// Plumbing operations - Git's low-level core functionality
-///
-/// This module contains the fundamental operations that implement Git's
-/// object model and version control primitives. These are the building
-/// blocks that higher-level porcelain commands are built upon.
 pub mod plumbing;
-
-/// Repository management and initialization
-///
-/// Contains functionality for setting up new Grit repositories,
-/// managing repository structure, and handling repository-level operations.
-/// Ensures proper directory layout and initial configuration.
 pub mod repository;
-
-/// Error handling and reporting
-///
-/// Comprehensive error types and handling for all Grit operations.
-/// Provides detailed error information while maintaining clean error propagation
-/// throughout the codebase.
 pub mod error;
-
-/// High-performance caching system
-///
-/// Implements LRU (Least Recently Used) caching for Git objects, computed hashes,
-/// and parsed tree structures. Thread-safe and optimized for concurrent access
-/// patterns typical in version control operations.
 pub mod cache;
-
-/// Porcelain commands - Git's high-level user interface
-///
-/// This module contains user-friendly commands that provide a high-level interface
-/// to Git operations. These commands build upon the plumbing operations to provide
-/// convenient functionality for common version control tasks.
 pub mod commands;

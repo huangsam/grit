@@ -1,3 +1,9 @@
+//! Repository management and initialization
+//!
+//! Contains functionality for setting up new Grit repositories,
+//! managing repository structure, and handling repository-level operations.
+//! Ensures proper directory layout and initial configuration.
+
 use crate::error::GritError;
 use std::fs;
 use std::path::Path;

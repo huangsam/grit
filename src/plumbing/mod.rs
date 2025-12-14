@@ -1,4 +1,4 @@
-//! Plumbing operations for Grit, a high-performance Git implementation in Rust.
+//! Plumbing operations for Grit
 //!
 //! This module contains the core plumbing functionalities that interact directly
 //! with Git objects, trees, commits, and the index. It provides efficient

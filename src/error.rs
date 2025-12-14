@@ -1,3 +1,9 @@
+//! Error handling and reporting
+//!
+//! Comprehensive error types and handling for all Grit operations.
+//! Provides detailed error information while maintaining clean error propagation
+//! throughout the codebase.
+
 use std::fmt;
 
 /// Represents all possible errors that can occur in the Grit Git plumbing implementation.
