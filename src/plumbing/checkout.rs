@@ -1,8 +1,8 @@
-use crate::error::GritError;
-use crate::plumbing::objects::{read_object, ObjectType};
 use crate::cache;
-use sha1::{Digest, Sha1};
+use crate::error::GritError;
+use crate::plumbing::objects::{ObjectType, read_object};
 use hex;
+use sha1::{Digest, Sha1};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -38,7 +38,7 @@ pub fn restore_snapshot(hash: &str, repo_root: &Path) -> Result<(), GritError> {
         ObjectType::Tree => hash.to_string(),
         ObjectType::Blob => {
             return Err(GritError::RepositoryError(
-                "Cannot checkout a blob object".to_string()
+                "Cannot checkout a blob object".to_string(),
             ));
         }
     };
@@ -54,7 +54,9 @@ fn extract_tree_hash_from_commit(commit_content: &str) -> Result<String, GritErr
             return Ok(tree_hash.to_string());
         }
     }
-    Err(GritError::CorruptObject("Commit missing tree reference".to_string()))
+    Err(GritError::CorruptObject(
+        "Commit missing tree reference".to_string(),
+    ))
 }
 
 /// Recursively restores a tree object to the working directory
@@ -81,7 +83,9 @@ fn restore_tree(tree_hash: &str, repo_root: &Path, current_path: &Path) -> Resul
             let blob_object = read_object(&hex::encode(entry.hash), repo_root)?;
 
             if blob_object.obj_type != ObjectType::Blob {
-                return Err(GritError::CorruptObject("Tree entry points to non-blob".to_string()));
+                return Err(GritError::CorruptObject(
+                    "Tree entry points to non-blob".to_string(),
+                ));
             }
 
             // Write file content
@@ -105,8 +109,7 @@ fn restore_tree(tree_hash: &str, repo_root: &Path, current_path: &Path) -> Resul
 }
 
 /// Represents a tree entry parsed from tree object content
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TreeEntry {
     pub mode: String,
     pub name: String,
@@ -138,8 +141,11 @@ pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, GritError> {
     while pos < content.len() {
         // Git tree format: entries separated by null bytes
         // Find the null byte that separates "mode name" from the 20-byte hash
-        let null_pos = content[pos..].iter().position(|&b| b == 0)
-            .ok_or_else(|| GritError::CorruptObject("Invalid tree entry format - missing null separator".to_string()))?;
+        let null_pos = content[pos..].iter().position(|&b| b == 0).ok_or_else(|| {
+            GritError::CorruptObject(
+                "Invalid tree entry format - missing null separator".to_string(),
+            )
+        })?;
 
         // Extract the "mode name" header (everything before null byte)
         let header = &content[pos..pos + null_pos];
@@ -147,15 +153,20 @@ pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, GritError> {
 
         // Parse mode and name from header: "100644 hello.txt"
         let header_str = String::from_utf8_lossy(header);
-        let space_pos = header_str.find(' ')
-            .ok_or_else(|| GritError::CorruptObject("Invalid tree entry header - missing space separator".to_string()))?;
+        let space_pos = header_str.find(' ').ok_or_else(|| {
+            GritError::CorruptObject(
+                "Invalid tree entry header - missing space separator".to_string(),
+            )
+        })?;
 
         let mode = header_str[..space_pos].to_string();
         let name = header_str[space_pos + 1..].to_string();
 
         // Read the 20-byte binary SHA-1 hash that follows
         if pos + 20 > content.len() {
-            return Err(GritError::CorruptObject("Tree entry truncated - incomplete hash".to_string()));
+            return Err(GritError::CorruptObject(
+                "Tree entry truncated - incomplete hash".to_string(),
+            ));
         }
 
         let mut hash = [0u8; 20];
@@ -166,7 +177,9 @@ pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, GritError> {
     }
 
     // Cache the parsed entries for future lookups
-    cache::GLOBAL_CACHE.tree_cache.put(content_hash, entries.clone());
+    cache::GLOBAL_CACHE
+        .tree_cache
+        .put(content_hash, entries.clone());
 
     Ok(entries)
 }
@@ -174,10 +187,10 @@ pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, GritError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
-    use crate::repository::initialize_repo;
     use crate::plumbing::trees::make_snapshot;
+    use crate::repository::initialize_repo;
     use std::fs;
+    use tempfile::TempDir;
 
     fn setup_test_repo() -> TempDir {
         let temp_dir = TempDir::new().unwrap();
@@ -192,7 +205,11 @@ mod tests {
         // Create some test files
         fs::write(test_dir.path().join("hello.txt"), "Hello World").unwrap();
         fs::create_dir(test_dir.path().join("subdir")).unwrap();
-        fs::write(test_dir.path().join("subdir").join("nested.txt"), "Nested content").unwrap();
+        fs::write(
+            test_dir.path().join("subdir").join("nested.txt"),
+            "Nested content",
+        )
+        .unwrap();
 
         // Create tree snapshot
         let tree_hash = make_snapshot(test_dir.path(), test_dir.path()).unwrap();
@@ -206,9 +223,15 @@ mod tests {
 
         // Verify files were restored
         assert!(test_dir.path().join("hello.txt").exists());
-        assert_eq!(fs::read_to_string(test_dir.path().join("hello.txt")).unwrap(), "Hello World");
+        assert_eq!(
+            fs::read_to_string(test_dir.path().join("hello.txt")).unwrap(),
+            "Hello World"
+        );
         assert!(test_dir.path().join("subdir").join("nested.txt").exists());
-        assert_eq!(fs::read_to_string(test_dir.path().join("subdir").join("nested.txt")).unwrap(), "Nested content");
+        assert_eq!(
+            fs::read_to_string(test_dir.path().join("subdir").join("nested.txt")).unwrap(),
+            "Nested content"
+        );
     }
 
     // Property-based tests

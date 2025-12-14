@@ -165,7 +165,8 @@ pub fn create_index_entry(
     let size = metadata.len() as u32;
 
     // Calculate path relative to repository root
-    let relative_path = path.strip_prefix(repo_root)
+    let relative_path = path
+        .strip_prefix(repo_root)
         .map_err(|_| GritError::RepositoryError("File not in repository".to_string()))?
         .to_string_lossy()
         .to_string();
@@ -201,7 +202,9 @@ pub fn read_index(repo_root: &Path) -> Result<Index, GritError> {
     let mut signature = [0u8; 4];
     reader.read_exact(&mut signature)?;
     if &signature != INDEX_SIGNATURE {
-        return Err(GritError::RepositoryError("Invalid index signature".to_string()));
+        return Err(GritError::RepositoryError(
+            "Invalid index signature".to_string(),
+        ));
     }
 
     let mut version_bytes = [0u8; 4];
@@ -222,10 +225,7 @@ pub fn read_index(repo_root: &Path) -> Result<Index, GritError> {
     // TODO: Read extensions if present
     // TODO: Verify hash
 
-    Ok(Index {
-        entries,
-        version,
-    })
+    Ok(Index { entries, version })
 }
 
 /// Write the Git index to disk
@@ -319,7 +319,9 @@ fn read_index_entry<R: Read>(reader: &mut R) -> Result<IndexEntry, GritError> {
     for _ in 0..padding {
         reader.read_exact(&mut byte)?;
         if byte[0] != 0 {
-            return Err(GritError::RepositoryError("Non-zero padding in index entry".to_string()));
+            return Err(GritError::RepositoryError(
+                "Non-zero padding in index entry".to_string(),
+            ));
         }
     }
 

@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use grit::plumbing::objects::{store_object, read_object, ObjectType};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use grit::plumbing::objects::{ObjectType, read_object, store_object};
 use grit::repository::initialize_repo;
 use tempfile::TempDir;
 
@@ -27,7 +27,8 @@ fn bench_store_object_medium(c: &mut Criterion) {
 
     c.bench_function("store_object_medium", |b| {
         b.iter(|| {
-            let hash = store_object(black_box(&content), ObjectType::Blob, test_dir.path()).unwrap();
+            let hash =
+                store_object(black_box(&content), ObjectType::Blob, test_dir.path()).unwrap();
             black_box(hash);
         })
     });
@@ -39,7 +40,8 @@ fn bench_store_object_large(c: &mut Criterion) {
 
     c.bench_function("store_object_large", |b| {
         b.iter(|| {
-            let hash = store_object(black_box(&content), ObjectType::Blob, test_dir.path()).unwrap();
+            let hash =
+                store_object(black_box(&content), ObjectType::Blob, test_dir.path()).unwrap();
             black_box(hash);
         })
     });
@@ -90,7 +92,8 @@ fn bench_store_read_roundtrip(c: &mut Criterion) {
     c.bench_function("store_read_roundtrip_10kb", |b| {
         b.iter(|| {
             let content = vec![b'C'; 10 * 1024];
-            let hash = store_object(black_box(&content), ObjectType::Blob, test_dir.path()).unwrap();
+            let hash =
+                store_object(black_box(&content), ObjectType::Blob, test_dir.path()).unwrap();
             let obj = read_object(black_box(&hash), test_dir.path()).unwrap();
             black_box(obj);
         })

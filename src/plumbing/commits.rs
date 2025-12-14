@@ -1,8 +1,8 @@
 use crate::error::GritError;
-use std::path::Path;
+use crate::plumbing::objects::{ObjectType, store_object};
 use std::fs;
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::plumbing::objects::{store_object, ObjectType};
 
 /// Creates a new commit object linking a tree snapshot to the commit history.
 /// Commits form the backbone of Git's DAG (Directed Acyclic Graph) by referencing
@@ -23,7 +23,12 @@ use crate::plumbing::objects::{store_object, ObjectType};
 /// # Returns
 /// * `Ok(hash)` - The 40-character hex hash of the created commit object
 /// * `Err(GritError)` - If commit creation or storage fails
-pub fn create_commit(tree_hash: &str, parent_hash: Option<&str>, message: &str, repo_root: &Path) -> Result<String, GritError> {
+pub fn create_commit(
+    tree_hash: &str,
+    parent_hash: Option<&str>,
+    message: &str,
+    repo_root: &Path,
+) -> Result<String, GritError> {
     // Get current timestamp
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -65,33 +70,50 @@ pub fn create_commit(tree_hash: &str, parent_hash: Option<&str>, message: &str, 
 /// This prevents path traversal attacks and ensures reference names are valid.
 fn validate_ref_name(ref_name: &str) -> Result<(), GritError> {
     if ref_name.is_empty() {
-        return Err(GritError::RepositoryError("Reference name cannot be empty".to_string()));
+        return Err(GritError::RepositoryError(
+            "Reference name cannot be empty".to_string(),
+        ));
     }
 
     if ref_name.starts_with('/') || ref_name.ends_with('/') {
-        return Err(GritError::RepositoryError("Reference name cannot start or end with '/'".to_string()));
+        return Err(GritError::RepositoryError(
+            "Reference name cannot start or end with '/'".to_string(),
+        ));
     }
 
     if ref_name.contains("..") {
-        return Err(GritError::RepositoryError("Reference name cannot contain '..'".to_string()));
+        return Err(GritError::RepositoryError(
+            "Reference name cannot contain '..'".to_string(),
+        ));
     }
 
     if ref_name.contains("//") {
-        return Err(GritError::RepositoryError("Reference name cannot contain consecutive '/'".to_string()));
+        return Err(GritError::RepositoryError(
+            "Reference name cannot contain consecutive '/'".to_string(),
+        ));
     }
 
     if ref_name.ends_with('.') {
-        return Err(GritError::RepositoryError("Reference name cannot end with '.'".to_string()));
+        return Err(GritError::RepositoryError(
+            "Reference name cannot end with '.'".to_string(),
+        ));
     }
 
     // Check for control characters and spaces
-    if ref_name.chars().any(|c| c.is_control() || c.is_whitespace()) {
-        return Err(GritError::RepositoryError("Reference name cannot contain control characters or spaces".to_string()));
+    if ref_name
+        .chars()
+        .any(|c| c.is_control() || c.is_whitespace())
+    {
+        return Err(GritError::RepositoryError(
+            "Reference name cannot contain control characters or spaces".to_string(),
+        ));
     }
 
     // Reasonable length limit
     if ref_name.len() > 1024 {
-        return Err(GritError::RepositoryError("Reference name too long".to_string()));
+        return Err(GritError::RepositoryError(
+            "Reference name too long".to_string(),
+        ));
     }
 
     Ok(())
@@ -182,7 +204,8 @@ pub fn get_current_commit(repo_root: &Path) -> Result<Option<String>, GritError>
 /// * `Err(GritError)` - If reading commits or resolving references fails
 pub fn show_commit_log(start_hash: &str, oneline: bool, repo_root: &Path) -> Result<(), GritError> {
     let mut current_hash = if start_hash == "HEAD" {
-        get_current_commit(repo_root)?.ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
+        get_current_commit(repo_root)?
+            .ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
     } else {
         start_hash.to_string()
     };
@@ -190,14 +213,21 @@ pub fn show_commit_log(start_hash: &str, oneline: bool, repo_root: &Path) -> Res
     loop {
         let object = crate::plumbing::objects::read_object(&current_hash, repo_root)?;
         if object.obj_type != ObjectType::Commit {
-            return Err(GritError::RepositoryError(format!("{} is not a commit", current_hash)));
+            return Err(GritError::RepositoryError(format!(
+                "{} is not a commit",
+                current_hash
+            )));
         }
 
         let content = String::from_utf8_lossy(&object.content);
         let (author, message) = parse_commit_content(&content);
 
         if oneline {
-            println!("{} {}", &current_hash[..7], message.lines().next().unwrap_or(""));
+            println!(
+                "{} {}",
+                &current_hash[..7],
+                message.lines().next().unwrap_or("")
+            );
         } else {
             println!("commit {}", current_hash);
             println!("Author: {}", author);
@@ -242,9 +272,9 @@ fn parse_commit_content(content: &str) -> (String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
+    use crate::plumbing::objects::{ObjectType, read_object};
     use crate::repository::initialize_repo;
-    use crate::plumbing::objects::{read_object, ObjectType};
+    use tempfile::TempDir;
 
     fn setup_test_repo() -> TempDir {
         let temp_dir = TempDir::new().unwrap();
@@ -329,7 +359,8 @@ mod tests {
         let parent_hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         let message = "Second commit";
 
-        let commit_hash = create_commit(tree_hash, Some(parent_hash), message, test_dir.path()).unwrap();
+        let commit_hash =
+            create_commit(tree_hash, Some(parent_hash), message, test_dir.path()).unwrap();
 
         // Read back the commit object
         let commit_object = read_object(&commit_hash, test_dir.path()).unwrap();
@@ -365,7 +396,15 @@ mod tests {
         update_ref("refs/heads/main", test_hash, test_dir.path()).unwrap();
 
         // Verify branch file content
-        let branch_content = fs::read_to_string(test_dir.path().join(".grit").join("refs").join("heads").join("main")).unwrap();
+        let branch_content = fs::read_to_string(
+            test_dir
+                .path()
+                .join(".grit")
+                .join("refs")
+                .join("heads")
+                .join("main"),
+        )
+        .unwrap();
         assert_eq!(branch_content, format!("{}\n", test_hash));
     }
 
@@ -379,10 +418,34 @@ mod tests {
         update_ref("refs/remotes/origin/main", test_hash, test_dir.path()).unwrap();
 
         // Verify directories were created and file content
-        assert!(test_dir.path().join(".grit").join("refs").join("remotes").exists());
-        assert!(test_dir.path().join(".grit").join("refs").join("remotes").join("origin").exists());
+        assert!(
+            test_dir
+                .path()
+                .join(".grit")
+                .join("refs")
+                .join("remotes")
+                .exists()
+        );
+        assert!(
+            test_dir
+                .path()
+                .join(".grit")
+                .join("refs")
+                .join("remotes")
+                .join("origin")
+                .exists()
+        );
 
-        let remote_content = fs::read_to_string(test_dir.path().join(".grit").join("refs").join("remotes").join("origin").join("main")).unwrap();
+        let remote_content = fs::read_to_string(
+            test_dir
+                .path()
+                .join(".grit")
+                .join("refs")
+                .join("remotes")
+                .join("origin")
+                .join("main"),
+        )
+        .unwrap();
         assert_eq!(remote_content, format!("{}\n", test_hash));
     }
 
@@ -457,7 +520,10 @@ mod tests {
         let (author, message) = parse_commit_content(content);
 
         assert_eq!(author, "Test User <test@example.com> 1234567890 +0000");
-        assert_eq!(message, "This is a test commit message\nwith multiple lines.");
+        assert_eq!(
+            message,
+            "This is a test commit message\nwith multiple lines."
+        );
     }
 
     #[test]

@@ -1,8 +1,9 @@
-use std::path::Path;
-use std::fs;
 use crate::error::GritError;
-use crate::plumbing::objects::{store_object, ObjectType};
+use crate::plumbing::objects::{ObjectType, store_object};
+use crate::plumbing::index::{Index, IndexEntry};
 use rayon::prelude::*;
+use std::fs;
+use std::path::Path;
 
 /// Represents a single entry in a Git tree object.
 /// Tree entries contain the metadata needed to reconstruct a directory structure,
@@ -127,10 +128,10 @@ pub fn make_snapshot(path: &Path, repo_root: &Path) -> Result<String, GritError>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
+    use crate::plumbing::objects::{ObjectType, read_object};
     use crate::repository::initialize_repo;
-    use crate::plumbing::objects::{read_object, ObjectType};
     use std::fs;
+    use tempfile::TempDir;
 
     fn setup_test_repo() -> TempDir {
         let temp_dir = TempDir::new().unwrap();
@@ -246,7 +247,8 @@ mod tests {
                 let hash_end = hash_start + 20;
 
                 if hash_end <= tree_object.content.len() {
-                    let entry_str = String::from_utf8_lossy(&tree_object.content[entry_start..name_end]);
+                    let entry_str =
+                        String::from_utf8_lossy(&tree_object.content[entry_start..name_end]);
                     entries.push(entry_str.to_string());
                     pos = hash_end;
                 } else {
@@ -269,7 +271,11 @@ mod tests {
 
         // Create directory structure
         fs::create_dir(test_dir.path().join("subdir")).unwrap();
-        fs::write(test_dir.path().join("subdir").join("nested.txt"), "Nested content").unwrap();
+        fs::write(
+            test_dir.path().join("subdir").join("nested.txt"),
+            "Nested content",
+        )
+        .unwrap();
         fs::write(test_dir.path().join("root.txt"), "Root content").unwrap();
 
         // Create snapshot
@@ -300,4 +306,74 @@ mod tests {
         // Should be empty (only contains .grit which is ignored)
         assert!(tree_object.content.is_empty());
     }
+}
+
+/// Creates a tree object from the Git index.
+///
+/// This function builds a tree structure reflecting the current state of the index.
+/// It is used by `grit write-tree` and `grit commit` to create commits from the staging area.
+pub fn write_tree_from_index(index: &Index, repo_root: &Path) -> Result<String, GritError> {
+    build_tree_recursive(&index.entries, 0, repo_root)
+}
+
+fn build_tree_recursive(entries: &[IndexEntry], prefix_len: usize, repo_root: &Path) -> Result<String, GritError> {
+    let mut tree_entries = Vec::new();
+    let mut i = 0;
+
+    while i < entries.len() {
+        let entry = &entries[i];
+        let path = &entry.path;
+
+        // Get the path relative to the current level
+        let relative_path = &path[prefix_len..];
+
+        if let Some(slash_pos) = relative_path.find('/') {
+            // It's a directory
+            let dir_name = &relative_path[..slash_pos];
+            let full_dir_prefix = format!("{}{}/", &path[..prefix_len], dir_name);
+
+            // Find all entries in this directory
+            let mut j = i + 1;
+            while j < entries.len() && entries[j].path.starts_with(&full_dir_prefix) {
+                j += 1;
+            }
+
+            // Recurse to create subtree
+            let subtree_hash_hex = build_tree_recursive(&entries[i..j], full_dir_prefix.len(), repo_root)?;
+            let subtree_hash = hex::decode(&subtree_hash_hex)
+                .map_err(|_| GritError::CorruptObject("Invalid hash".to_string()))?;
+
+            tree_entries.push(TreeEntry {
+                mode: "40000".to_string(),
+                name: dir_name.to_string(),
+                hash: subtree_hash.try_into().unwrap(),
+            });
+
+            i = j;
+        } else {
+            // It's a file in this directory
+            tree_entries.push(TreeEntry {
+                mode: format!("{:o}", entry.mode),
+                name: relative_path.to_string(),
+                hash: entry.hash,
+            });
+            i += 1;
+        }
+    }
+
+    // Sort entries by name, treating directories as if they end with '/'
+    tree_entries.sort_by(|a, b| {
+        let a_name = if a.mode == "40000" { format!("{}/", a.name) } else { a.name.clone() };
+        let b_name = if b.mode == "40000" { format!("{}/", b.name) } else { b.name.clone() };
+        a_name.cmp(&b_name)
+    });
+
+    // Format and store the tree object
+    let mut content = Vec::new();
+    for entry in tree_entries {
+        content.extend_from_slice(format!("{} {}\0", entry.mode, entry.name).as_bytes());
+        content.extend_from_slice(&entry.hash);
+    }
+
+    store_object(&content, ObjectType::Tree, repo_root)
 }

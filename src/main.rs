@@ -1,19 +1,20 @@
-mod error;
-mod repository;
-mod plumbing;
 mod cache;
 mod commands;
+mod error;
+mod plumbing;
+mod repository;
 
+use crate::error::GritError;
+use crate::plumbing::checkout::restore_snapshot;
+use crate::plumbing::commits::{create_commit, get_current_commit, show_commit_log, update_ref};
+use crate::plumbing::index::read_index;
+use crate::plumbing::objects::{ObjectType, read_object, store_object};
+use crate::plumbing::trees::write_tree_from_index;
+use crate::repository::initialize_repo;
 use clap::{Parser, Subcommand};
-use std::path::Path;
 use std::fs;
 use std::io::Write;
-use crate::error::GritError;
-use crate::repository::initialize_repo;
-use crate::plumbing::objects::{store_object, read_object, ObjectType};
-use crate::plumbing::trees::make_snapshot;
-use crate::plumbing::commits::{create_commit, update_ref, get_current_commit, show_commit_log};
-use crate::plumbing::checkout::restore_snapshot;
+use std::path::Path;
 
 /// Grit - A high-performance Git plumbing implementation in Rust
 #[derive(Parser)]
@@ -67,12 +68,36 @@ enum Commands {
         /// Files or patterns to add
         files: Vec<String>,
     },
+    /// Show the status of the working directory and staging area
+    Status,
+    /// Reset current HEAD to the specified state
+    Reset {
+        /// The commit to reset to (defaults to HEAD)
+        #[arg(default_value = "HEAD")]
+        commit: String,
+
+        /// Resets the index and working tree
+        #[arg(long, group = "mode")]
+        hard: bool,
+
+        /// Resets the index but not the working tree (default)
+        #[arg(long, group = "mode")]
+        mixed: bool,
+
+        /// Does not touch the index file or the working tree
+        #[arg(long, group = "mode")]
+        soft: bool,
+
+        /// Paths to reset (if provided, mode must be mixed (default))
+        #[arg(last = true)]
+        paths: Vec<String>,
+    },
 }
 
 fn main() -> Result<(), GritError> {
     let cli = Cli::parse();
 
-    match cli.command {
+    Ok(match cli.command {
         Commands::Init => {
             initialize_repo(Path::new("."))?;
             println!("Initialized empty Grit repository");
@@ -97,12 +122,16 @@ fn main() -> Result<(), GritError> {
             }
         }
         Commands::WriteTree => {
-            let hash = make_snapshot(Path::new("."), Path::new("."))?;
+            let index = read_index(Path::new("."))?;
+            let hash = write_tree_from_index(&index, Path::new("."))?;
             println!("{}", hash);
         }
         Commands::Commit { message } => {
-            // Get the current tree snapshot
-            let tree_hash = make_snapshot(Path::new("."), Path::new("."))?;
+            // Read the index
+            let index = read_index(Path::new("."))?;
+
+            // Create tree from index
+            let tree_hash = write_tree_from_index(&index, Path::new("."))?;
 
             // Get the parent commit from HEAD
             let parent_hash = get_current_commit(Path::new("."))?;
@@ -133,9 +162,41 @@ fn main() -> Result<(), GritError> {
         Commands::Add { files } => {
             commands::add::add_files(&files, Path::new("."))?;
         }
-    }
+        Commands::Status => {
+            commands::status::show_status(Path::new("."))?;
+        }
+        Commands::Reset { commit, hard, mixed: _, soft, paths } => {
+            if !paths.is_empty() {
+                if hard || soft {
+                    return Err(GritError::RepositoryError("Cannot use --hard or --soft with paths".to_string()));
+                }
 
-    Ok(())
+                let commit_hash = if commit == "HEAD" {
+                    get_current_commit(Path::new("."))?.ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
+                } else {
+                    commit
+                };
+
+                commands::reset::reset_paths(&commit_hash, &paths, Path::new("."))?;
+            } else {
+                let mode = if hard {
+                    commands::reset::ResetMode::Hard
+                } else if soft {
+                    commands::reset::ResetMode::Soft
+                } else {
+                    commands::reset::ResetMode::Mixed
+                };
+
+                let commit_hash = if commit == "HEAD" {
+                    get_current_commit(Path::new("."))?.ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
+                } else {
+                    commit
+                };
+
+                commands::reset::reset(&commit_hash, mode, Path::new("."))?;
+            }
+        }
+    })
 }
 
 #[cfg(test)]
@@ -158,7 +219,12 @@ mod integration_tests {
             .unwrap()
             .join("grit");
 
-        println!("Running: {} {:?} in {:?}", grit_binary.display(), args, test_dir);
+        println!(
+            "Running: {} {:?} in {:?}",
+            grit_binary.display(),
+            args,
+            test_dir
+        );
 
         let output = Command::new(&grit_binary)
             .args(args)
@@ -215,7 +281,9 @@ mod integration_tests {
         assert_eq!(commit_hash.len(), 40);
 
         // Verify commit object exists
-        let commit_file = test_dir.path().join(".grit/objects")
+        let commit_file = test_dir
+            .path()
+            .join(".grit/objects")
             .join(&commit_hash[..2])
             .join(&commit_hash[2..]);
         assert!(commit_file.exists(), "Commit object file should exist");
@@ -240,8 +308,14 @@ mod integration_tests {
         assert!(double_init.is_err(), "Double init should fail");
 
         // Try to read nonexistent object
-        let nonexistent = run_grit_command(&test_dir, &["cat-file", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]);
-        assert!(nonexistent.is_err(), "Reading nonexistent object should fail");
+        let nonexistent = run_grit_command(
+            &test_dir,
+            &["cat-file", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+        );
+        assert!(
+            nonexistent.is_err(),
+            "Reading nonexistent object should fail"
+        );
     }
 
     #[test]
@@ -256,12 +330,17 @@ mod integration_tests {
         // Create second commit
         fs::write(test_dir.path().join("file2.txt"), "Content 2").unwrap();
         let commit_result = run_grit_command(&test_dir, &["commit", "--message", "Second commit"]);
-        assert!(commit_result.is_ok(), "Second commit failed: {:?}", commit_result);
+        assert!(
+            commit_result.is_ok(),
+            "Second commit failed: {:?}",
+            commit_result
+        );
 
         // Verify HEAD points to new commit
         let head_content = fs::read_to_string(test_dir.path().join(".grit/HEAD")).unwrap();
         let head_ref = head_content.trim().strip_prefix("ref: ").unwrap();
-        let branch_content = fs::read_to_string(test_dir.path().join(".grit").join(head_ref)).unwrap();
+        let branch_content =
+            fs::read_to_string(test_dir.path().join(".grit").join(head_ref)).unwrap();
         let latest_commit = branch_content.trim();
 
         // Read the latest commit
@@ -295,7 +374,11 @@ mod integration_tests {
 
         // Test oneline format
         let oneline_result = run_grit_command(&test_dir, &["log", "--oneline"]);
-        assert!(oneline_result.is_ok(), "Oneline log failed: {:?}", oneline_result);
+        assert!(
+            oneline_result.is_ok(),
+            "Oneline log failed: {:?}",
+            oneline_result
+        );
         let oneline_output = oneline_result.unwrap();
         assert!(oneline_output.lines().count() == 2); // Two commits
         assert!(oneline_output.contains("Second commit"));
@@ -349,7 +432,11 @@ mod integration_tests {
         // Create files and commit
         fs::write(test_dir.path().join("original.txt"), "Original content").unwrap();
         fs::create_dir(test_dir.path().join("subdir")).unwrap();
-        fs::write(test_dir.path().join("subdir").join("nested.txt"), "Nested content").unwrap();
+        fs::write(
+            test_dir.path().join("subdir").join("nested.txt"),
+            "Nested content",
+        )
+        .unwrap();
 
         let commit_result = run_grit_command(&test_dir, &["commit", "--message", "Initial commit"]);
         assert!(commit_result.is_ok());
@@ -364,9 +451,15 @@ mod integration_tests {
         assert!(checkout_result.is_ok());
 
         // Verify files were restored
-        assert_eq!(fs::read_to_string(test_dir.path().join("original.txt")).unwrap(), "Original content");
+        assert_eq!(
+            fs::read_to_string(test_dir.path().join("original.txt")).unwrap(),
+            "Original content"
+        );
         assert!(test_dir.path().join("subdir").join("nested.txt").exists());
-        assert_eq!(fs::read_to_string(test_dir.path().join("subdir").join("nested.txt")).unwrap(), "Nested content");
+        assert_eq!(
+            fs::read_to_string(test_dir.path().join("subdir").join("nested.txt")).unwrap(),
+            "Nested content"
+        );
     }
 
     #[test]
@@ -398,11 +491,16 @@ mod integration_tests {
                 .expect("git command failed");
 
             assert!(git_output.status.success(), "git hash-object failed");
-            let git_hash = String::from_utf8_lossy(&git_output.stdout).trim().to_string();
+            let git_hash = String::from_utf8_lossy(&git_output.stdout)
+                .trim()
+                .to_string();
 
             // Compare hashes
-            assert_eq!(grit_hash, git_hash,
-                "Hash mismatch for file {}: grit={}, git={}", filename, grit_hash, git_hash);
+            assert_eq!(
+                grit_hash, git_hash,
+                "Hash mismatch for file {}: grit={}, git={}",
+                filename, grit_hash, git_hash
+            );
 
             // Verify we can read the object back
             let cat_result = run_grit_command(&test_dir, &["cat-file", &grit_hash]);
@@ -425,15 +523,26 @@ mod integration_tests {
             .output()
             .expect("git command failed");
 
-        assert!(git_output.status.success(), "git hash-object failed for binary file");
-        let git_hash = String::from_utf8_lossy(&git_output.stdout).trim().to_string();
+        assert!(
+            git_output.status.success(),
+            "git hash-object failed for binary file"
+        );
+        let git_hash = String::from_utf8_lossy(&git_output.stdout)
+            .trim()
+            .to_string();
 
-        assert_eq!(grit_hash, git_hash,
-            "Hash mismatch for binary file: grit={}, git={}", grit_hash, git_hash);
+        assert_eq!(
+            grit_hash, git_hash,
+            "Hash mismatch for binary file: grit={}, git={}",
+            grit_hash, git_hash
+        );
 
         // For binary content, compare by reading the object directly instead of through cat-file
         let read_obj = crate::plumbing::objects::read_object(&grit_hash, test_dir.path()).unwrap();
-        assert_eq!(read_obj.obj_type, crate::plumbing::objects::ObjectType::Blob);
+        assert_eq!(
+            read_obj.obj_type,
+            crate::plumbing::objects::ObjectType::Blob
+        );
         assert_eq!(read_obj.content, binary_content);
     }
 }

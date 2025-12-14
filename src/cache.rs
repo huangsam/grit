@@ -28,11 +28,11 @@
 //! LRU eviction ensures that memory usage remains bounded while prioritizing
 //! recently accessed data. Cache capacities are configurable for different use cases.
 
-use lru::LruCache;
-use std::sync::Mutex;
-use std::num::NonZeroUsize;
-use crate::plumbing::objects::Object;
 use crate::plumbing::checkout::TreeEntry;
+use crate::plumbing::objects::Object;
+use lru::LruCache;
+use std::num::NonZeroUsize;
+use std::sync::Mutex;
 
 /// Global cache for Git objects (blobs, trees, commits)
 /// Uses LRU eviction policy to keep recently accessed objects in memory
@@ -208,7 +208,11 @@ impl CacheManager {
     /// - Memory-constrained: decrease capacities
     /// - Hash-heavy workloads: increase hash_capacity
     #[allow(dead_code)]
-    pub fn with_capacities(object_capacity: usize, hash_capacity: usize, tree_capacity: usize) -> Self {
+    pub fn with_capacities(
+        object_capacity: usize,
+        hash_capacity: usize,
+        tree_capacity: usize,
+    ) -> Self {
         CacheManager {
             object_cache: ObjectCache::new(object_capacity),
             hash_cache: HashCache::new(hash_capacity),

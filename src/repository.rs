@@ -1,6 +1,6 @@
+use crate::error::GritError;
 use std::fs;
 use std::path::Path;
-use crate::error::GritError;
 
 /// Initializes a new Grit repository by creating the standard .grit directory structure.
 /// This function sets up the basic directories and files needed for a Grit repository
@@ -23,7 +23,9 @@ pub fn initialize_repo(repo_root: &Path) -> Result<(), GritError> {
 
     // Check if repository already exists
     if grit_dir.exists() {
-        return Err(GritError::RepositoryError("Grit repository already exists".to_string()));
+        return Err(GritError::RepositoryError(
+            "Grit repository already exists".to_string(),
+        ));
     }
 
     // Create the basic directory structure
@@ -60,7 +62,14 @@ mod tests {
         assert!(test_dir.path().join(".grit").exists());
         assert!(test_dir.path().join(".grit").join("objects").exists());
         assert!(test_dir.path().join(".grit").join("refs").exists());
-        assert!(test_dir.path().join(".grit").join("refs").join("heads").exists());
+        assert!(
+            test_dir
+                .path()
+                .join(".grit")
+                .join("refs")
+                .join("heads")
+                .exists()
+        );
 
         // Check HEAD file content
         let head_content = fs::read_to_string(test_dir.path().join(".grit").join("HEAD")).unwrap();

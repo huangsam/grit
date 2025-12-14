@@ -1,12 +1,12 @@
-use std::path::Path;
-use crate::error::GritError;
-use sha1::{Digest, Sha1};
-use flate2::write::ZlibEncoder;
-use flate2::read::ZlibDecoder;
-use flate2::Compression;
-use std::io::{Read, Write, BufWriter, BufReader};
-use std::fs;
 use crate::cache;
+use crate::error::GritError;
+use flate2::Compression;
+use flate2::read::ZlibDecoder;
+use flate2::write::ZlibEncoder;
+use sha1::{Digest, Sha1};
+use std::fs;
+use std::io::{BufReader, BufWriter, Read, Write};
+use std::path::Path;
 
 /// Represents the type of Git object stored in the repository.
 /// Git objects come in three fundamental types that form the basis of the version control system.
@@ -59,7 +59,11 @@ pub struct Object {
 ///
 /// # Validation
 /// The returned hash should match `git hash-object -w --stdin` for the same input.
-pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> Result<String, GritError> {
+pub fn store_object(
+    content: &[u8],
+    obj_type: ObjectType,
+    repo_root: &Path,
+) -> Result<String, GritError> {
     // Check hash cache first - compute content hash to see if we've stored this before
     let obj_type_u8 = obj_type.clone() as u8;
     let content_hash = format!("{}_{}", obj_type_u8, hex::encode(Sha1::digest(content)));
@@ -67,7 +71,11 @@ pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> R
     if let Some(cached_hash) = cache::GLOBAL_CACHE.hash_cache.get(&content_hash) {
         // Verify the object still exists on disk
         let (prefix, suffix) = cached_hash.split_at(2);
-        let object_path = repo_root.join(".grit").join("objects").join(prefix).join(suffix);
+        let object_path = repo_root
+            .join(".grit")
+            .join("objects")
+            .join(prefix)
+            .join(suffix);
         if object_path.exists() {
             return Ok(cached_hash);
         }
@@ -91,7 +99,9 @@ pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> R
     let hash_hex = hex::encode(hash_bytes);
 
     // Cache the computed hash
-    cache::GLOBAL_CACHE.hash_cache.put(content_hash, hash_hex.clone());
+    cache::GLOBAL_CACHE
+        .hash_cache
+        .put(content_hash, hash_hex.clone());
 
     // Step 3: Compression
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
@@ -141,7 +151,11 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, GritError> {
 
     // Step 1: Retrieval
     let (prefix, suffix) = hash.split_at(2);
-    let object_path = repo_root.join(".grit").join("objects").join(prefix).join(suffix);
+    let object_path = repo_root
+        .join(".grit")
+        .join("objects")
+        .join(prefix)
+        .join(suffix);
 
     if !object_path.exists() {
         return Err(GritError::ObjectNotFound(hash.to_string()));
@@ -158,7 +172,9 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, GritError> {
     decoder.read_to_end(&mut decompressed_data)?;
 
     // Step 3: Header Parsing
-    let null_pos = decompressed_data.iter().position(|&b| b == 0)
+    let null_pos = decompressed_data
+        .iter()
+        .position(|&b| b == 0)
         .ok_or_else(|| GritError::CorruptObject("No null byte found in object data".to_string()))?;
 
     let header = &decompressed_data[..null_pos];
@@ -169,14 +185,20 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, GritError> {
         .map_err(|_| GritError::CorruptObject("Invalid UTF-8 in object header".to_string()))?;
 
     let mut parts = header_str.split_whitespace();
-    let type_str = parts.next()
+    let type_str = parts
+        .next()
         .ok_or_else(|| GritError::CorruptObject("Missing type in object header".to_string()))?;
 
     let obj_type = match type_str {
         "blob" => ObjectType::Blob,
         "tree" => ObjectType::Tree,
         "commit" => ObjectType::Commit,
-        _ => return Err(GritError::CorruptObject(format!("Unknown object type: {}", type_str))),
+        _ => {
+            return Err(GritError::CorruptObject(format!(
+                "Unknown object type: {}",
+                type_str
+            )));
+        }
     };
 
     // Step 4: Output
@@ -186,7 +208,9 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, GritError> {
     };
 
     // Cache the object for future use
-    cache::GLOBAL_CACHE.object_cache.put(hash.to_string(), object.clone());
+    cache::GLOBAL_CACHE
+        .object_cache
+        .put(hash.to_string(), object.clone());
 
     Ok(object)
 }
@@ -194,8 +218,8 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, GritError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use crate::repository::initialize_repo;
+    use tempfile::TempDir;
 
     fn setup_test_repo() -> TempDir {
         let temp_dir = TempDir::new().unwrap();
@@ -240,7 +264,8 @@ mod tests {
     fn test_store_and_read_commit() {
         let test_dir = setup_test_repo();
 
-        let commit_content = b"tree abc123\nauthor Test <test@example.com> 1234567890 +0000\n\nTest commit";
+        let commit_content =
+            b"tree abc123\nauthor Test <test@example.com> 1234567890 +0000\n\nTest commit";
         let hash = store_object(commit_content, ObjectType::Commit, test_dir.path()).unwrap();
 
         // Read back the object
@@ -372,10 +397,12 @@ mod tests {
             assert_eq!(read_obj.obj_type, ObjectType::Blob);
             assert_eq!(read_obj.content.len(), size);
 
-            println!("Size: {}KB - Store: {:.2}ms, Read: {:.2}ms",
-                    size / 1024,
-                    store_time.as_secs_f64() * 1000.0,
-                    read_time.as_secs_f64() * 1000.0);
+            println!(
+                "Size: {}KB - Store: {:.2}ms, Read: {:.2}ms",
+                size / 1024,
+                store_time.as_secs_f64() * 1000.0,
+                read_time.as_secs_f64() * 1000.0
+            );
         }
     }
 
@@ -396,7 +423,8 @@ mod tests {
         }
 
         // Create tree snapshot
-        let tree_hash = crate::plumbing::trees::make_snapshot(test_dir.path(), test_dir.path()).unwrap();
+        let tree_hash =
+            crate::plumbing::trees::make_snapshot(test_dir.path(), test_dir.path()).unwrap();
 
         // Read and verify tree contains all files
         let tree_obj = read_object(&tree_hash, test_dir.path()).unwrap();
@@ -406,8 +434,10 @@ mod tests {
         assert_eq!(entries.len(), unicode_files.len());
 
         // Verify filenames are preserved
-        let entry_names: std::collections::HashSet<_> = entries.iter().map(|e| e.name.as_str()).collect();
-        let expected_names: std::collections::HashSet<_> = unicode_files.iter().map(|(name, _)| *name).collect();
+        let entry_names: std::collections::HashSet<_> =
+            entries.iter().map(|e| e.name.as_str()).collect();
+        let expected_names: std::collections::HashSet<_> =
+            unicode_files.iter().map(|(name, _)| *name).collect();
         assert_eq!(entry_names, expected_names);
     }
 
@@ -420,8 +450,12 @@ mod tests {
         let hash = store_object(content, ObjectType::Blob, test_dir.path()).unwrap();
 
         // Manually corrupt the object file
-        let object_path = test_dir.path().join(".grit").join("objects")
-            .join(&hash[..2]).join(&hash[2..]);
+        let object_path = test_dir
+            .path()
+            .join(".grit")
+            .join("objects")
+            .join(&hash[..2])
+            .join(&hash[2..]);
 
         let mut corrupted_content = std::fs::read(&object_path).unwrap();
         if corrupted_content.len() > 10 {
@@ -438,7 +472,7 @@ mod tests {
 
         // Should be an Io error due to corrupted compression
         match result {
-            Err(crate::error::GritError::Io(_)) => {},
+            Err(crate::error::GritError::Io(_)) => {}
             Err(e) => panic!("Expected Io error, got: {:?}", e),
             _ => panic!("Expected Io error"),
         }

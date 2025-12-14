@@ -3,8 +3,8 @@
 //! This module handles staging files for the next commit by updating the Git index.
 
 use crate::error::GritError;
-use crate::plumbing::index::{read_index, write_index, create_index_entry};
-use crate::plumbing::objects::{store_object, ObjectType};
+use crate::plumbing::index::{create_index_entry, read_index, write_index};
+use crate::plumbing::objects::{ObjectType, store_object};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -29,7 +29,10 @@ pub fn add_files(files: &[String], repo_root: &Path) -> Result<(), GritError> {
 }
 
 /// Collect all files that should be added based on the provided patterns/files
-fn collect_files_to_add(patterns: &[String], repo_root: &Path) -> Result<HashSet<PathBuf>, GritError> {
+fn collect_files_to_add(
+    patterns: &[String],
+    repo_root: &Path,
+) -> Result<HashSet<PathBuf>, GritError> {
     // First, collect all files in the repository
     let mut all_files = HashSet::new();
     collect_all_files(repo_root, &mut all_files, repo_root)?;
@@ -53,9 +56,10 @@ fn collect_files_to_add(patterns: &[String], repo_root: &Path) -> Result<HashSet
             if path.is_dir() {
                 collect_files_from_directory(&path, &mut files, repo_root)?;
             } else if path.is_file()
-                && let Ok(relative) = path.strip_prefix(repo_root) {
-                    files.insert(relative.to_path_buf());
-                }
+                && let Ok(relative) = path.strip_prefix(repo_root)
+            {
+                files.insert(relative.to_path_buf());
+            }
             // If not found, ignore (like Git does)
         }
     }
@@ -64,7 +68,11 @@ fn collect_files_to_add(patterns: &[String], repo_root: &Path) -> Result<HashSet
 }
 
 /// Recursively collect all files from the repository
-fn collect_all_files(dir: &Path, files: &mut HashSet<PathBuf>, repo_root: &Path) -> Result<(), GritError> {
+fn collect_all_files(
+    dir: &Path,
+    files: &mut HashSet<PathBuf>,
+    repo_root: &Path,
+) -> Result<(), GritError> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
@@ -77,9 +85,10 @@ fn collect_all_files(dir: &Path, files: &mut HashSet<PathBuf>, repo_root: &Path)
         if path.is_dir() {
             collect_all_files(&path, files, repo_root)?;
         } else if path.is_file()
-            && let Ok(relative) = path.strip_prefix(repo_root) {
-                files.insert(relative.to_path_buf());
-            }
+            && let Ok(relative) = path.strip_prefix(repo_root)
+        {
+            files.insert(relative.to_path_buf());
+        }
     }
 
     Ok(())
@@ -103,16 +112,21 @@ fn collect_files_from_directory(
         if path.is_dir() {
             collect_files_from_directory(&path, files, repo_root)?;
         } else if path.is_file()
-            && let Ok(relative) = path.strip_prefix(repo_root) {
-                files.insert(relative.to_path_buf());
-            }
+            && let Ok(relative) = path.strip_prefix(repo_root)
+        {
+            files.insert(relative.to_path_buf());
+        }
     }
 
     Ok(())
 }
 
 /// Add a single file to the index
-fn add_file_to_index(file_path: &Path, index: &mut crate::plumbing::index::Index, repo_root: &Path) -> Result<(), GritError> {
+fn add_file_to_index(
+    file_path: &Path,
+    index: &mut crate::plumbing::index::Index,
+    repo_root: &Path,
+) -> Result<(), GritError> {
     let full_path = repo_root.join(file_path);
 
     // Read file content
@@ -122,8 +136,9 @@ fn add_file_to_index(file_path: &Path, index: &mut crate::plumbing::index::Index
     let hash = store_object(&content, ObjectType::Blob, repo_root)?;
 
     // Parse hash from hex string to bytes
-    let hash_bytes = hex::decode(&hash)
-        .map_err(|_| GritError::RepositoryError("Invalid hash returned from store_object".to_string()))?;
+    let hash_bytes = hex::decode(&hash).map_err(|_| {
+        GritError::RepositoryError("Invalid hash returned from store_object".to_string())
+    })?;
 
     let mut hash_array = [0u8; 20];
     hash_array.copy_from_slice(&hash_bytes);
@@ -187,7 +202,8 @@ mod tests {
         // Check that files were added
         let index = read_index(repo_root).unwrap();
         assert_eq!(index.len(), 2);
-        let paths: std::collections::HashSet<_> = index.entries.iter().map(|e| e.path.clone()).collect();
+        let paths: std::collections::HashSet<_> =
+            index.entries.iter().map(|e| e.path.clone()).collect();
         assert!(paths.contains("file1.txt"));
         assert!(paths.contains("subdir/file2.txt"));
     }
@@ -208,7 +224,8 @@ mod tests {
         // Check that only .rs files were added
         let index = read_index(repo_root).unwrap();
         assert_eq!(index.len(), 2);
-        let paths: std::collections::HashSet<_> = index.entries.iter().map(|e| e.path.clone()).collect();
+        let paths: std::collections::HashSet<_> =
+            index.entries.iter().map(|e| e.path.clone()).collect();
         assert!(paths.contains("file1.rs"));
         assert!(paths.contains("file2.rs"));
         assert!(!paths.contains("file3.txt"));
