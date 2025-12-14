@@ -68,10 +68,10 @@ pub enum ResetMode {
 /// let repo_root = Path::new("/path/to/repo");
 ///
 /// // Soft reset to previous commit
-/// reset("abc123...", ResetMode::Soft, repo_root)?;
+/// reset("abc123...", ResetMode::Soft, repo_root).unwrap();
 ///
 /// // Hard reset (destructive!)
-/// reset("def456...", ResetMode::Hard, repo_root)?;
+/// reset("def456...", ResetMode::Hard, repo_root).unwrap();
 /// ```
 pub fn reset(commit_hash: &str, mode: ResetMode, repo_root: &Path) -> Result<(), GritError> {
     // 1. Validate commit exists
@@ -166,7 +166,7 @@ pub fn reset(commit_hash: &str, mode: ResetMode, repo_root: &Path) -> Result<(),
 /// let repo_root = Path::new("/path/to/repo");
 ///
 /// // Reset specific files to match HEAD~1
-/// reset_paths("abc123...", &["src/main.rs".to_string(), "Cargo.toml".to_string()], repo_root)?;
+/// reset_paths("abc123...", &["src/main.rs".to_string(), "Cargo.toml".to_string()], repo_root).unwrap();
 /// ```
 pub fn reset_paths(commit_hash: &str, paths: &[String], repo_root: &Path) -> Result<(), GritError> {
     // 1. Get tree from commit

@@ -45,13 +45,13 @@ use std::path::{Path, PathBuf};
 /// let repo_root = Path::new("/path/to/repo");
 ///
 /// // Add a single file
-/// add_files(&["README.md".to_string()], repo_root)?;
+/// add_files(&["README.md".to_string()], repo_root).unwrap();
 ///
 /// // Add all Rust files
-/// add_files(&["*.rs".to_string()], repo_root)?;
+/// add_files(&["*.rs".to_string()], repo_root).unwrap();
 ///
 /// // Add entire directory
-/// add_files(&["src/".to_string()], repo_root)?;
+/// add_files(&["src/".to_string()], repo_root).unwrap();
 /// ```
 pub fn add_files(files: &[String], repo_root: &Path) -> Result<(), GritError> {
     // Read the current index

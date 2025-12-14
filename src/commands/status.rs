@@ -51,7 +51,7 @@ use std::path::Path;
 /// use grit::commands::status::show_status;
 ///
 /// let repo_root = Path::new("/path/to/repo");
-/// show_status(repo_root)?;
+/// show_status(repo_root).unwrap();
 /// ```
 ///
 /// Example output:
