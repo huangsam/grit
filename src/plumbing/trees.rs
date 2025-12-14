@@ -1,8 +1,6 @@
 use crate::error::GritError;
 use crate::plumbing::objects::{ObjectType, store_object};
 use crate::plumbing::index::{Index, IndexEntry};
-use rayon::prelude::*;
-use std::fs;
 use std::path::Path;
 
 /// Represents a single entry in a Git tree object.
@@ -47,82 +45,37 @@ pub struct TreeEntry {
 ///
 /// # Validation
 /// The returned hash should exactly match `git write-tree` for the same directory.
-pub fn make_snapshot(path: &Path, repo_root: &Path) -> Result<String, GritError> {
-    // Step 1: Collect all directory entries, filtering out repository metadata
-    // We ignore .grit (our repo), target (build artifacts), and .git (other repos)
-    let dir_entries: Vec<_> = fs::read_dir(path)?
-        .filter_map(|entry| entry.ok()) // Skip entries we can't read (permission issues, etc.)
-        .filter(|entry| {
-            let file_name = entry.file_name().to_string_lossy().to_string();
-            // Filter out repository and build directories to avoid infinite recursion
-            // and unnecessary object creation. This matches Git's behavior.
-            file_name != ".grit" && file_name != "target" && file_name != ".git"
-        })
-        .collect();
+#[cfg(test)]
+pub fn create_tree_for_testing(path: &Path, repo_root: &Path) -> Result<String, GritError> {
+    let mut index = Index::new();
+    add_to_index_recursive(path, repo_root, &mut index)?;
+    write_tree_from_index(&index, repo_root)
+}
 
-    // Step 2: Process entries in parallel using Rayon for performance
-    // Each file/directory is processed concurrently across CPU cores
-    let entries_result: Result<Vec<TreeEntry>, GritError> = dir_entries
-        .par_iter() // Parallel iterator - automatically uses all available cores
-        .map(|entry| -> Result<TreeEntry, GritError> {
-            let entry_path = entry.path();
-            let file_name = entry.file_name().to_string_lossy().to_string();
-            let metadata = entry.metadata()?;
+#[cfg(test)]
+fn add_to_index_recursive(path: &Path, repo_root: &Path, index: &mut Index) -> Result<(), GritError> {
+    for entry in std::fs::read_dir(path)? {
+        let entry = entry?;
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        if file_name == ".grit" || file_name == "target" || file_name == ".git" {
+            continue;
+        }
 
-            if metadata.is_file() {
-                // Regular files: store content as blob objects
-                let content = fs::read(&entry_path)?;
-                let hash = store_object(&content, ObjectType::Blob, repo_root)?;
-                let hash_bytes = hex::decode(hash)?; // Convert hex string to 20-byte binary
+        let file_path = entry.path();
+        if file_path.is_dir() {
+            add_to_index_recursive(&file_path, repo_root, index)?;
+        } else if file_path.is_file() {
+            let content = std::fs::read(&file_path)?;
+            let hash = store_object(&content, ObjectType::Blob, repo_root)?;
+            let hash_bytes = hex::decode(hash)?;
+            let mut hash_array = [0u8; 20];
+            hash_array.copy_from_slice(&hash_bytes);
 
-                Ok(TreeEntry {
-                    mode: "100644".to_string(), // Standard Unix file permissions (rw-r--r--)
-                    name: file_name,
-                    hash: hash_bytes.try_into().unwrap(), // Safe: hex::decode gives 20 bytes
-                })
-            } else if metadata.is_dir() {
-                // Directories: recursively create tree objects
-                let hash = make_snapshot(&entry_path, repo_root)?;
-                let hash_bytes = hex::decode(hash)?;
-
-                Ok(TreeEntry {
-                    mode: "40000".to_string(), // Git's directory mode indicator
-                    name: file_name,
-                    hash: hash_bytes.try_into().unwrap(),
-                })
-            } else {
-                // Skip symlinks, devices, named pipes, etc. for MVP simplicity
-                // Return dummy entry that will be filtered out later
-                Ok(TreeEntry {
-                    mode: "".to_string(),
-                    name: "".to_string(),
-                    hash: [0u8; 20],
-                })
-            }
-        })
-        .collect(); // Gather all parallel results, short-circuiting on first error
-
-    let mut entries = entries_result?;
-    // Filter out dummy entries (for ignored file types like symlinks)
-    entries.retain(|entry| !entry.mode.is_empty());
-
-    // Step 3: Sort entries lexicographically by name (Git requirement)
-    // This ensures consistent tree hashes regardless of filesystem enumeration order
-    // Git requires deterministic ordering for reproducible hashes
-    entries.sort_by(|a, b| a.name.cmp(&b.name));
-
-    // Step 4: Format tree content in Git's binary format
-    let mut tree_content = Vec::new();
-    for entry in entries {
-        // Git tree format: [mode] [space] [name] [null byte] [20-byte binary hash]
-        // Example: "100644 hello.txt\x00[binary hash bytes]"
-        tree_content.extend_from_slice(format!("{} {}\0", entry.mode, entry.name).as_bytes());
-        tree_content.extend_from_slice(&entry.hash);
+            let index_entry = crate::plumbing::index::create_index_entry(&file_path, &hash_array, repo_root)?;
+            index.add_entry(index_entry);
+        }
     }
-
-    // Step 5: Store the formatted tree as a Git object
-    let tree_hash = store_object(&tree_content, ObjectType::Tree, repo_root)?;
-    Ok(tree_hash)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -157,7 +110,7 @@ mod tests {
                 // Ensure unique filenames by appending index to duplicates
                 let mut seen = std::collections::HashSet::new();
                 for (i, (filename, _)) in files.iter_mut().enumerate() {
-                    if !seen.insert(filename.clone()) {
+                    if !seen.insert(filename.to_lowercase()) {
                         *filename = format!("{}_{}", filename, i);
                     }
                 }
@@ -172,7 +125,7 @@ mod tests {
             }
 
             // Create tree snapshot
-            let tree_hash = make_snapshot(test_dir.path(), test_dir.path())?;
+            let tree_hash = create_tree_for_testing(test_dir.path(), test_dir.path())?;
 
             // Verify tree was created
             let tree_object = read_object(&tree_hash, test_dir.path())?;
@@ -197,7 +150,7 @@ mod tests {
         fs::write(test_dir.path().join("test.txt"), "Hello, World!").unwrap();
 
         // Create snapshot
-        let tree_hash = make_snapshot(test_dir.path(), test_dir.path()).unwrap();
+        let tree_hash = create_tree_for_testing(test_dir.path(), test_dir.path()).unwrap();
 
         // Verify hash is 40 characters
         assert_eq!(tree_hash.len(), 40);
@@ -222,7 +175,7 @@ mod tests {
         fs::write(test_dir.path().join("another.txt"), "Another content").unwrap();
 
         // Create snapshot
-        let tree_hash = make_snapshot(test_dir.path(), test_dir.path()).unwrap();
+        let tree_hash = create_tree_for_testing(test_dir.path(), test_dir.path()).unwrap();
 
         // Read back the tree object
         let tree_object = read_object(&tree_hash, test_dir.path()).unwrap();
@@ -279,7 +232,7 @@ mod tests {
         fs::write(test_dir.path().join("root.txt"), "Root content").unwrap();
 
         // Create snapshot
-        let tree_hash = make_snapshot(test_dir.path(), test_dir.path()).unwrap();
+        let tree_hash = create_tree_for_testing(test_dir.path(), test_dir.path()).unwrap();
 
         // Read back the tree object
         let tree_object = read_object(&tree_hash, test_dir.path()).unwrap();
@@ -297,7 +250,7 @@ mod tests {
         let test_dir = setup_test_repo();
 
         // Create snapshot of empty directory
-        let tree_hash = make_snapshot(test_dir.path(), test_dir.path()).unwrap();
+        let tree_hash = create_tree_for_testing(test_dir.path(), test_dir.path()).unwrap();
 
         // Read back the tree object
         let tree_object = read_object(&tree_hash, test_dir.path()).unwrap();

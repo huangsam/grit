@@ -182,7 +182,7 @@ mod tests {
 
         // Check that it was added to index
         let index = read_index(repo_root).unwrap();
-        assert_eq!(index.len(), 1);
+        assert_eq!(index.entries.len(), 1);
         assert_eq!(index.entries[0].path, "test.txt");
     }
 
@@ -201,7 +201,7 @@ mod tests {
 
         // Check that files were added
         let index = read_index(repo_root).unwrap();
-        assert_eq!(index.len(), 2);
+        assert_eq!(index.entries.len(), 2);
         let paths: std::collections::HashSet<_> =
             index.entries.iter().map(|e| e.path.clone()).collect();
         assert!(paths.contains("file1.txt"));
@@ -223,7 +223,7 @@ mod tests {
 
         // Check that only .rs files were added
         let index = read_index(repo_root).unwrap();
-        assert_eq!(index.len(), 2);
+        assert_eq!(index.entries.len(), 2);
         let paths: std::collections::HashSet<_> =
             index.entries.iter().map(|e| e.path.clone()).collect();
         assert!(paths.contains("file1.rs"));

@@ -187,7 +187,7 @@ pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, GritError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plumbing::trees::make_snapshot;
+    use crate::plumbing::trees::create_tree_for_testing;
     use crate::repository::initialize_repo;
     use std::fs;
     use tempfile::TempDir;
@@ -212,7 +212,7 @@ mod tests {
         .unwrap();
 
         // Create tree snapshot
-        let tree_hash = make_snapshot(test_dir.path(), test_dir.path()).unwrap();
+        let tree_hash = create_tree_for_testing(test_dir.path(), test_dir.path()).unwrap();
 
         // Clear working directory
         fs::remove_file(test_dir.path().join("hello.txt")).unwrap();

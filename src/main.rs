@@ -97,7 +97,7 @@ enum Commands {
 fn main() -> Result<(), GritError> {
     let cli = Cli::parse();
 
-    Ok(match cli.command {
+    let _: () = match cli.command {
         Commands::Init => {
             initialize_repo(Path::new("."))?;
             println!("Initialized empty Grit repository");
@@ -196,7 +196,8 @@ fn main() -> Result<(), GritError> {
                 commands::reset::reset(&commit_hash, mode, Path::new("."))?;
             }
         }
-    })
+    };
+    Ok(())
 }
 
 #[cfg(test)]
@@ -437,6 +438,8 @@ mod integration_tests {
             "Nested content",
         )
         .unwrap();
+
+        run_grit_command(&test_dir, &["add", "."]).unwrap();
 
         let commit_result = run_grit_command(&test_dir, &["commit", "--message", "Initial commit"]);
         assert!(commit_result.is_ok());

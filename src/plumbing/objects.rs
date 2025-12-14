@@ -346,7 +346,7 @@ mod tests {
             }
 
             // Create tree snapshot
-            let tree_hash = crate::plumbing::trees::make_snapshot(test_dir.path(), test_dir.path())?;
+            let tree_hash = crate::plumbing::trees::create_tree_for_testing(test_dir.path(), test_dir.path())?;
 
             // Read tree object
             let tree_obj = read_object(&tree_hash, test_dir.path())?;
@@ -424,7 +424,7 @@ mod tests {
 
         // Create tree snapshot
         let tree_hash =
-            crate::plumbing::trees::make_snapshot(test_dir.path(), test_dir.path()).unwrap();
+            crate::plumbing::trees::create_tree_for_testing(test_dir.path(), test_dir.path()).unwrap();
 
         // Read and verify tree contains all files
         let tree_obj = read_object(&tree_hash, test_dir.path()).unwrap();

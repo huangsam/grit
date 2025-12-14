@@ -254,8 +254,8 @@ fn parse_commit_content(content: &str) -> (String, String) {
     let mut in_message = false;
 
     for line in content.lines() {
-        if line.starts_with("author ") {
-            author = line[7..].to_string();
+        if let Some(stripped) = line.strip_prefix("author ") {
+            author = stripped.to_string();
         } else if line.is_empty() && !in_message {
             in_message = true;
         } else if in_message {

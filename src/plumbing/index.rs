@@ -102,26 +102,6 @@ impl Index {
         let pos = self.entries.partition_point(|e| e.path < entry.path);
         self.entries.insert(pos, entry);
     }
-
-    /// Remove an entry from the index by path
-    pub fn remove_entry(&mut self, path: &str) {
-        self.entries.retain(|e| e.path != path);
-    }
-
-    /// Get an entry by path
-    pub fn get_entry(&self, path: &str) -> Option<&IndexEntry> {
-        self.entries.iter().find(|e| e.path == path)
-    }
-
-    /// Check if the index has any entries
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
-
-    /// Get the number of entries
-    pub fn len(&self) -> usize {
-        self.entries.len()
-    }
 }
 
 /// Create an index entry from file metadata and content hash
@@ -378,8 +358,8 @@ mod tests {
     #[test]
     fn test_index_new() {
         let index = Index::new();
-        assert!(index.is_empty());
-        assert_eq!(index.len(), 0);
+        assert!(index.entries.is_empty());
+        assert_eq!(index.entries.len(), 0);
         assert_eq!(index.version, INDEX_VERSION);
     }
 
@@ -422,7 +402,7 @@ mod tests {
         index.add_entry(entry1.clone());
         index.add_entry(entry2.clone());
 
-        assert_eq!(index.len(), 2);
+        assert_eq!(index.entries.len(), 2);
         assert_eq!(index.entries[0].path, "file1.txt");
         assert_eq!(index.entries[1].path, "file2.txt");
     }
@@ -464,11 +444,11 @@ mod tests {
         };
 
         index.add_entry(entry1);
-        assert_eq!(index.len(), 1);
+        assert_eq!(index.entries.len(), 1);
         assert_eq!(index.entries[0].size, 42);
 
         index.add_entry(entry2);
-        assert_eq!(index.len(), 1);
+        assert_eq!(index.entries.len(), 1);
         assert_eq!(index.entries[0].size, 24);
     }
 
@@ -493,10 +473,10 @@ mod tests {
         };
 
         index.add_entry(entry);
-        assert_eq!(index.len(), 1);
+        assert_eq!(index.entries.len(), 1);
 
-        index.remove_entry("file.txt");
-        assert!(index.is_empty());
+        index.entries.retain(|e| e.path != "file.txt");
+        assert!(index.entries.is_empty());
     }
 
     #[test]
@@ -521,11 +501,11 @@ mod tests {
 
         index.add_entry(entry.clone());
 
-        let retrieved = index.get_entry("file.txt");
+        let retrieved = index.entries.iter().find(|e| e.path == "file.txt");
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().size, 42);
 
-        let not_found = index.get_entry("nonexistent.txt");
+        let not_found = index.entries.iter().find(|e| e.path == "nonexistent.txt");
         assert!(not_found.is_none());
     }
 

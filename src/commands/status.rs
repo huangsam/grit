@@ -66,7 +66,7 @@ pub fn show_status(repo_root: &Path) -> Result<(), GritError> {
     }
 
     // Find untracked files: files in working directory but not in index
-    for (path, _) in &working_files {
+    for path in working_files.keys() {
         if !index.entries.iter().any(|e| &e.path == path) {
             untracked_files.push(path.clone());
         }
