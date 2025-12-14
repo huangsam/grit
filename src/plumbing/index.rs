@@ -102,7 +102,24 @@ impl Default for Index {
 }
 
 impl Index {
-    /// Create a new empty index
+    /// Create a new empty index with default version
+    ///
+    /// Initializes an Index struct with an empty vector of entries and the current
+    /// index version. This is used when creating a fresh index or when no existing
+    /// index file is found on disk.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `Index` instance ready for use.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use grit::plumbing::index::Index;
+    ///
+    /// let index = Index::new();
+    /// assert_eq!(index.entries.len(), 0);
+    /// ```
     pub fn new() -> Self {
         Index {
             entries: Vec::new(),
@@ -110,7 +127,39 @@ impl Index {
         }
     }
 
-    /// Add or update an entry in the index
+    /// Add or update an entry in the index, maintaining sorted order
+    ///
+    /// This method adds a new entry to the index or updates an existing entry with the same path.
+    /// Entries are kept sorted by path for efficient lookups and to match Git's index format.
+    /// If an entry with the same path already exists, it is replaced.
+    ///
+    /// # Arguments
+    ///
+    /// * `entry` - The `IndexEntry` to add or update
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use grit::plumbing::index::{Index, IndexEntry};
+    ///
+    /// let mut index = Index::new();
+    /// let entry = IndexEntry {
+    ///     path: "file.txt".to_string(),
+    ///     hash: [0u8; 20],
+    ///     ctime: 0,
+    ///     ctime_nsec: 0,
+    ///     mtime: 0,
+    ///     mtime_nsec: 0,
+    ///     dev: 0,
+    ///     ino: 0,
+    ///     mode: 0,
+    ///     uid: 0,
+    ///     gid: 0,
+    ///     size: 0,
+    ///     flags: 0,
+    /// };
+    /// index.add_entry(entry);
+    /// ```
     pub fn add_entry(&mut self, entry: IndexEntry) {
         // Remove existing entry with same path if it exists
         self.entries.retain(|e| e.path != entry.path);

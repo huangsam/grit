@@ -275,7 +275,39 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, GritError> {
     Ok(object)
 }
 
-/// Reads and parses a tree object from the repository.
+/// Reads and parses a tree object from the repository
+///
+/// This function retrieves a tree object by its hash and parses its binary content
+/// into a structured `Tree` representation. Tree objects contain directory entries
+/// with file names, modes, and hashes of their contents.
+///
+/// # Arguments
+///
+/// * `repo` - The repository containing the tree object
+/// * `hash` - The SHA-1 hash of the tree object to read
+///
+/// # Returns
+///
+/// Returns a `Result` containing the parsed `Tree` or a `GritError` if reading or parsing fails.
+///
+/// # Errors
+///
+/// * `ObjectNotFound` - If the hash doesn't exist
+/// * `CorruptObject` - If the object isn't a tree or parsing fails
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use grit::repository::Repository;
+/// use grit::plumbing::objects::read_tree;
+/// use std::path::Path;
+///
+/// let repo = Repository::new(Path::new("/repo"));
+/// let tree = read_tree(&repo, "tree_hash").unwrap();
+/// for entry in &tree.entries {
+///     println!("{}: {}", entry.name, hex::encode(entry.hash));
+/// }
+/// ```
 pub fn read_tree(repo: &crate::repository::Repository, hash: &str) -> Result<Tree, GritError> {
     let object = read_object(hash, &repo.root)?;
     if object.obj_type != ObjectType::Tree {
@@ -285,7 +317,36 @@ pub fn read_tree(repo: &crate::repository::Repository, hash: &str) -> Result<Tre
     Ok(Tree { entries })
 }
 
-/// Reads a blob object and returns its content as a string.
+/// Reads a blob object and returns its content as a string
+///
+/// This function retrieves a blob object (file content) by its hash and returns
+/// the content as a UTF-8 string. Blob objects store the raw content of files.
+///
+/// # Arguments
+///
+/// * `repo` - The repository containing the blob object
+/// * `hash` - The SHA-1 hash of the blob object to read
+///
+/// # Returns
+///
+/// Returns a `Result` containing the file content as a `String` or a `GritError` if reading fails.
+///
+/// # Errors
+///
+/// * `ObjectNotFound` - If the hash doesn't exist
+/// * `CorruptObject` - If the object isn't a blob or contains invalid UTF-8
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use grit::repository::Repository;
+/// use grit::plumbing::objects::read_blob;
+/// use std::path::Path;
+///
+/// let repo = Repository::new(Path::new("/repo"));
+/// let content = read_blob(&repo, "blob_hash").unwrap();
+/// println!("File content: {}", content);
+/// ```
 pub fn read_blob(repo: &crate::repository::Repository, hash: &str) -> Result<String, GritError> {
     let object = read_object(hash, &repo.root)?;
     if object.obj_type != ObjectType::Blob {
@@ -294,7 +355,38 @@ pub fn read_blob(repo: &crate::repository::Repository, hash: &str) -> Result<Str
     String::from_utf8(object.content).map_err(|_| GritError::CorruptObject("Invalid UTF-8 in blob".to_string()))
 }
 
-/// Reads and parses a commit object from the repository.
+/// Reads and parses a commit object from the repository
+///
+/// This function retrieves a commit object by its hash and parses its content
+/// into a structured `Commit` representation. Commit objects contain metadata
+/// about a snapshot, including tree hash, parent commits, author, and message.
+///
+/// # Arguments
+///
+/// * `repo` - The repository containing the commit object
+/// * `hash` - The SHA-1 hash of the commit object to read
+///
+/// # Returns
+///
+/// Returns a `Result` containing the parsed `Commit` or a `GritError` if reading or parsing fails.
+///
+/// # Errors
+///
+/// * `ObjectNotFound` - If the hash doesn't exist
+/// * `CorruptObject` - If the object isn't a commit or parsing fails
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use grit::repository::Repository;
+/// use grit::plumbing::objects::read_commit;
+/// use std::path::Path;
+///
+/// let repo = Repository::new(Path::new("/repo"));
+/// let commit = read_commit(&repo, "commit_hash").unwrap();
+/// println!("Tree: {}", commit.tree_hash);
+/// println!("Message: {}", commit.message);
+/// ```
 pub fn read_commit(repo: &crate::repository::Repository, hash: &str) -> Result<Commit, GritError> {
     let object = read_object(hash, &repo.root)?;
     if object.obj_type != ObjectType::Commit {

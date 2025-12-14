@@ -60,6 +60,37 @@ pub struct DiffEntry {
     pub status: DiffStatus,
 }
 
+/// Compare two tree objects and return the differences between them
+///
+/// This function recursively compares two Git tree objects, identifying files that have been
+/// added, modified, or deleted between the two trees. It handles nested directories by
+/// recursively comparing subtrees when both trees contain a directory with the same name.
+///
+/// # Arguments
+///
+/// * `repo` - The repository containing the tree objects
+/// * `tree_hash_a` - The SHA-1 hash of the first tree to compare
+/// * `tree_hash_b` - The SHA-1 hash of the second tree to compare
+/// * `prefix` - The path prefix for the current comparison level
+///
+/// # Returns
+///
+/// Returns a `Result` containing a vector of `DiffEntry` objects representing the differences,
+/// or a `GritError` if reading trees fails.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::repository::Repository;
+/// use grit::plumbing::diff::compare_trees;
+///
+/// let repo = Repository::new(Path::new("/repo"));
+/// let diffs = compare_trees(&repo, "tree1_hash", "tree2_hash", Path::new("")).unwrap();
+/// for diff in diffs {
+///     println!("{}: {:?}", diff.path.display(), diff.status);
+/// }
+/// ```
 pub fn compare_trees(
     repo: &Repository,
     tree_hash_a: &str,
@@ -138,6 +169,42 @@ pub fn compare_trees(
     Ok(diffs)
 }
 
+/// Generate unified diff output for two file contents
+///
+/// This function computes the differences between two text files using a line-by-line comparison.
+/// It produces output in the standard unified diff format, similar to `diff -u`, and also returns
+/// statistics about the number of insertions and deletions.
+///
+/// The algorithm processes the files line by line, identifying common lines and changes.
+/// It handles additions, deletions, and modifications efficiently.
+///
+/// # Arguments
+///
+/// * `content_a` - The content of the first file as a string
+/// * `content_b` - The content of the second file as a string
+/// * `path` - The file path to include in the diff headers
+///
+/// # Returns
+///
+/// Returns a tuple containing:
+/// - The unified diff output as a string
+/// - The number of insertions (lines added)
+/// - The number of deletions (lines removed)
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use grit::plumbing::diff::get_file_deltas;
+///
+/// let old_content = "line1\nline2\nline3\n";
+/// let new_content = "line1\nline2_modified\nline3\nline4\n";
+/// let path = Path::new("example.txt");
+///
+/// let (diff, insertions, deletions) = get_file_deltas(old_content, new_content, path);
+/// println!("{}", diff);
+/// println!("+{} -{}", insertions, deletions);
+/// ```
 pub fn get_file_deltas(content_a: &str, content_b: &str, path: &Path) -> (String, usize, usize) {
     let lines_a: Vec<&str> = content_a.lines().collect();
     let lines_b: Vec<&str> = content_b.lines().collect();

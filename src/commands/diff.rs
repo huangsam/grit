@@ -53,6 +53,37 @@ use crate::plumbing::diff::{compare_trees, get_file_deltas, DiffStatus};
 use crate::plumbing::objects::{read_commit, read_blob};
 use crate::repository::Repository;
 
+/// Execute the diff command to show changes between two commits
+///
+/// This function compares two commits and displays the differences between them.
+/// It can show either detailed unified diffs or summary statistics.
+/// The comparison includes all files that differ between the two commit trees.
+///
+/// # Arguments
+///
+/// * `repo` - The repository to operate on
+/// * `hash_a` - The hash of the first commit to compare
+/// * `hash_b` - The hash of the second commit to compare
+/// * `stat` - If true, show only statistics; if false, show full diffs
+///
+/// # Returns
+///
+/// Returns `Ok(())` on success, or `GritError` if commits cannot be read or comparison fails.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use grit::repository::Repository;
+/// use grit::commands::diff::run_diff_command;
+/// use std::path::Path;
+///
+/// let repo = Repository::new(Path::new("/repo"));
+/// // Show full diff between two commits
+/// run_diff_command(&repo, "abc123", "def456", false).unwrap();
+///
+/// // Show only statistics
+/// run_diff_command(&repo, "abc123", "def456", true).unwrap();
+/// ```
 pub fn run_diff_command(repo: &Repository, hash_a: &str, hash_b: &str, stat: bool) -> Result<(), GritError> {
     // Get tree hashes from commits
     let commit_a = read_commit(repo, hash_a)?;

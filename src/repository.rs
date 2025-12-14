@@ -50,7 +50,29 @@ pub struct Repository {
 }
 
 impl Repository {
-    /// Creates a new Repository instance for the given root path.
+    /// Creates a new Repository instance for the given root path
+    ///
+    /// This constructor creates a Repository struct that represents a Grit repository
+    /// located at the specified root directory. The path is stored as a PathBuf for
+    /// easy manipulation throughout the codebase.
+    ///
+    /// # Arguments
+    ///
+    /// * `root` - The root directory of the Grit repository
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `Repository` instance.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use std::path::Path;
+    /// use grit::repository::Repository;
+    ///
+    /// let repo = Repository::new(Path::new("/path/to/repo"));
+    /// assert_eq!(repo.root, Path::new("/path/to/repo"));
+    /// ```
     pub fn new(root: &Path) -> Self {
         Repository {
             root: root.to_path_buf(),
