@@ -8,7 +8,7 @@ Grit is a high-performance, from-scratch implementation of Git's core operations
 - **Hybrid Architecture**: Implements both plumbing (low-level) and porcelain (high-level) commands.
 - **Performance-Focused**: 95%+ faster hash ops, 97%+ faster object reads via caching.
 - **Compatible**: Uses Git's object formats, SHA-1 hashing, directory structures, and **Index format**.
-- **Minimal Dependencies**: Core deps include `clap` (CLI), `flate2` (compression), `sha1`, `hex`, `rayon` (parallelism), `lru`, `lazy_static`, `glob`.
+- **Minimal Dependencies**: Core deps include `clap`, `flate2`, `sha1`, `hex`, `glob`.
 
 ## Architecture
 
