@@ -71,11 +71,11 @@ fn restore_tree(tree_hash: &str, repo_root: &Path, current_path: &Path) -> Resul
         if entry.mode == "40000" {
             // Directory (tree)
             fs::create_dir_all(&entry_path)?;
-            let sub_tree_hash = hex::encode(&entry.hash);
+            let sub_tree_hash = hex::encode(entry.hash);
             restore_tree(&sub_tree_hash, repo_root, &current_path.join(&entry.name))?;
         } else {
             // File (blob)
-            let blob_object = read_object(&hex::encode(&entry.hash), repo_root)?;
+            let blob_object = read_object(&hex::encode(entry.hash), repo_root)?;
 
             if blob_object.obj_type != ObjectType::Blob {
                 return Err(CrustError::CorruptObject("Tree entry points to non-blob".to_string()));
