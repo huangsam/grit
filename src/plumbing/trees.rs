@@ -1,6 +1,35 @@
-//! Create trees from Index (write-tree)
+//! # Git Tree Object Management Module
 //!
-//! This module handles creating tree objects from the index.
+//! This module handles the creation and manipulation of Git tree objects, which represent
+//! directory structures in the repository. Trees form the hierarchical structure that
+//! connects files (blobs) to commits.
+//!
+//! ## Overview
+//!
+//! Tree objects store information about the contents of a directory, including filenames,
+//! permissions, and references to blobs or subtrees. This module provides functionality to:
+//! - Create tree objects from the current index state
+//! - Parse tree object data into structured entries
+//! - Build directory hierarchies from tree structures
+//! - Support parallel processing for large directory trees
+//!
+//! ## Key Components
+//!
+//! - `TreeEntry`: Represents a single entry in a tree (file or subdirectory)
+//! - `make_snapshot()`: Creates a tree from a directory path
+//! - Tree serialization and deserialization functions
+//! - Integration with the index for staging area snapshots
+//!
+//! ## Performance Features
+//!
+//! - Parallel tree traversal using Rayon
+//! - Efficient sorting and deduplication of entries
+//! - Buffered I/O for large tree operations
+//!
+//! ## Usage
+//!
+//! Trees are created during commit operations to capture the state of the working directory
+//! at a specific point in time. They can also be used for comparing directory states.
 
 use crate::error::GritError;
 use crate::plumbing::objects::{ObjectType, store_object};

@@ -1,6 +1,35 @@
-//! Store/read Git objects with compression
+//! # Git Object Storage and Retrieval Module
 //!
-//! This module handles storing and reading Git objects with zlib compression.
+//! This module provides the core functionality for storing and retrieving Git objects,
+//! which are the fundamental building blocks of a Git repository. Git objects include
+//! blobs (file contents), trees (directory structures), and commits (snapshots of the repository).
+//!
+//! ## Overview
+//!
+//! Git objects are stored in a compressed format using zlib compression and are identified
+//! by their SHA-1 hash. This module handles:
+//! - Storing objects to disk with compression
+//! - Reading objects from disk with decompression
+//! - Calculating SHA-1 hashes for object content
+//! - Managing the object database structure
+//!
+//! ## Key Components
+//!
+//! - `ObjectType`: Enumeration of Git object types (Blob, Tree, Commit)
+//! - `store_object()`: Stores an object and returns its hash
+//! - `read_object()`: Reads an object by its hash
+//! - Hash calculation and compression utilities
+//!
+//! ## Performance Features
+//!
+//! - Buffered I/O for efficient reading/writing
+//! - LRU caching integration for frequently accessed objects
+//! - Parallel processing support for bulk operations
+//!
+//! ## Usage
+//!
+//! Objects are typically created through higher-level operations (e.g., adding files,
+//! creating commits), but can be manipulated directly for plumbing operations.
 
 use crate::cache;
 use crate::error::GritError;

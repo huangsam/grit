@@ -1,6 +1,36 @@
-//! Create commits, manage refs/history
+//! # Git Commit and Reference Management Module
 //!
-//! This module handles creating commit objects and managing references and history.
+//! This module manages Git commits and references, forming the backbone of version control
+//! history. Commits are snapshots of the repository state, and references (branches, tags)
+//! point to specific commits.
+//!
+//! ## Overview
+//!
+//! Commits contain metadata about changes (author, message, timestamp) and point to a tree
+//! object representing the repository state. This module provides:
+//! - Creating new commits from the current index state
+//! - Managing references (branches, HEAD, tags)
+//! - Reading commit history and metadata
+//! - Reference validation and resolution
+//!
+//! ## Key Components
+//!
+//! - `create_commit()`: Creates a new commit object
+//! - `update_ref()`: Updates branch or HEAD references
+//! - `show_commit_log()`: Displays commit history
+//! - Reference parsing and validation functions
+//!
+//! ## Features
+//!
+//! - Support for commit messages and author information
+//! - Parent commit tracking for history
+//! - Reference locking for concurrent access safety
+//! - Timestamp handling with system time
+//!
+//! ## Usage
+//!
+//! Commits are created through the `commit` porcelain command, but can be manipulated
+//! directly for advanced operations like rebasing or cherry-picking.
 
 use crate::error::GritError;
 use crate::plumbing::objects::{ObjectType, store_object};

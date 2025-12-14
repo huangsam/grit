@@ -1,6 +1,34 @@
-//! Restore working dir from snapshots
+//! # Git Checkout and Working Directory Restoration Module
 //!
-//! This module handles checking out trees or commits to the working directory.
+//! This module handles restoring the working directory to a specific state by checking out
+//! commits or trees. It ensures the working directory matches the repository state at a
+//! given point in history.
+//!
+//! ## Overview
+//!
+//! Checkout operations involve:
+//! - Reading tree or commit objects from the object database
+//! - Recursively creating or updating files and directories
+//! - Handling file permissions and executable bits
+//! - Managing conflicts and overwrites safely
+//!
+//! ## Key Components
+//!
+//! - `restore_snapshot()`: Restores working directory from a tree hash
+//! - Tree traversal and file restoration functions
+//! - Permission handling for executable files
+//! - Conflict detection and resolution
+//!
+//! ## Safety Features
+//!
+//! - Atomic operations where possible
+//! - Backup of uncommitted changes (future feature)
+//! - Validation of object hashes before restoration
+//!
+//! ## Usage
+//!
+//! Used by porcelain commands like `reset` and `checkout` to update the working directory.
+//! Can also be used directly for low-level operations.
 
 use crate::cache;
 use crate::error::GritError;

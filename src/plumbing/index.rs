@@ -1,8 +1,8 @@
-//! Git Index Implementation
+//! # Git Index (Staging Area) Implementation Module
 //!
-//! The Git index (staging area) is a binary file that tracks the state of files
-//! that have been staged for the next commit. This module implements Git's
-//! index format for reading and writing index files.
+//! The Git index, also known as the staging area, is a binary file that tracks the state
+//! of files that have been staged for the next commit. This module provides a complete
+//! implementation of Git's index format for reading, writing, and manipulating index files.
 //!
 //! ## Index Format Overview
 //!
@@ -23,6 +23,25 @@
 //! - SHA-1 hash of the staged content
 //! - Flags (stage, name length, etc.)
 //! - Null-terminated path name
+//!
+//! ## Key Components
+//!
+//! - `Index`: Main structure representing the index file
+//! - `IndexEntry`: Individual file entry with metadata
+//! - Index reading/writing functions with full format compatibility
+//! - Entry manipulation (add, remove, update) operations
+//!
+//! ## Features
+//!
+//! - Full compatibility with Git index format versions 2 and 3
+//! - Efficient binary serialization and deserialization
+//! - Support for file permissions, timestamps, and extended attributes
+//! - Integrity checking with SHA-1 validation
+//!
+//! ## Usage
+//!
+//! The index is used by porcelain commands like `add`, `status`, and `commit` to track
+//! staged changes. It serves as the bridge between the working directory and commits.
 
 use crate::error::GritError;
 use std::fs;

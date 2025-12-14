@@ -1,6 +1,41 @@
-//! Load and match .gritignore patterns
+//! # Git Ignore Pattern Processing Module
 //!
-//! This module handles loading ignore patterns from .gritignore files and matching them.
+//! This module handles loading and matching ignore patterns from `.gritignore` files,
+//! allowing Grit to exclude files and directories from staging and status operations.
+//!
+//! ## Overview
+//!
+//! Ignore patterns work similarly to `.gitignore` but use the `.gritignore` filename.
+//! The module supports:
+//! - Loading patterns from repository root `.gritignore`
+//! - Glob-style pattern matching with wildcards
+//! - Directory and file exclusion
+//! - Pattern precedence and ordering
+//!
+//! ## Pattern Syntax
+//!
+//! Supported patterns include:
+//! - `*.ext`: Match files with specific extensions
+//! - `dir/`: Ignore directories and contents
+//! - `file.txt`: Exact filename matches
+//! - `!important.txt`: Negation patterns (future feature)
+//!
+//! ## Key Components
+//!
+//! - `load_ignore_patterns()`: Reads patterns from `.gritignore`
+//! - `is_ignored()`: Checks if a path matches ignore patterns
+//! - Pattern compilation and caching for performance
+//!
+//! ## Performance Features
+//!
+//! - Pattern caching to avoid repeated file reads
+//! - Efficient glob matching algorithms
+//! - Minimal memory footprint for large pattern sets
+//!
+//! ## Usage
+//!
+//! Integrated into `add` and `status` commands to filter out ignored files.
+//! Patterns are loaded once and reused for multiple operations.
 
 use std::fs;
 use std::path::Path;

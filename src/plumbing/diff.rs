@@ -1,6 +1,41 @@
-//! Core diff algorithm (Myers)
+//! # Git Diff Algorithm Implementation Module
 //!
-//! This module implements the core diff functionality using the Myers algorithm.
+//! This module implements the core diff functionality for comparing file contents and
+//! repository states. It uses the Myers diff algorithm for efficient line-by-line
+//! comparison of text files.
+//!
+//! ## Overview
+//!
+//! The diff system provides:
+//! - Line-by-line comparison of file contents
+//! - Detection of additions, deletions, and modifications
+//! - Support for unified diff output format
+//! - Comparison between commits, trees, or working directory
+//!
+//! ## Myers Algorithm
+//!
+//! The Myers diff algorithm is an O(ND) algorithm that finds the minimum number of
+//! edits (insertions, deletions) to transform one sequence into another. It's
+//! particularly efficient for finding differences in text files.
+//!
+//! ## Key Components
+//!
+//! - `diff_files()`: Compares two files and returns diff output
+//! - `diff_commits()`: Compares two commits or trees
+//! - Myers algorithm implementation for sequence comparison
+//! - Unified diff formatting functions
+//!
+//! ## Features
+//!
+//! - Support for binary file detection
+//! - Context lines in diff output
+//! - Performance optimizations for large files
+//! - Integration with repository object database
+//!
+//! ## Usage
+//!
+//! Used by the `diff` porcelain command and internally for operations like
+//! `status` and `commit` to show changes.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
