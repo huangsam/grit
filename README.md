@@ -91,6 +91,8 @@ Patterns support:
 
 ## Documentation
 
+To learn more about Grit's architecture and API, generate and view the documentation with:
+
 ```bash
 cargo doc --open
 ```
