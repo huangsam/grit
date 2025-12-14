@@ -48,7 +48,26 @@ grit commit -m "Initial commit"
 grit log --oneline
 ```
 
-## Ignoring Files
+### Commands
+
+#### Porcelain (User-Friendly)
+
+- `grit init` - Initialize repository
+- `grit add <files>` - Stage files for commit
+- `grit status` - Show working directory status
+- `grit commit -m <msg>` - Create commit
+- `grit log` - Show commit history
+- `grit reset` - Reset to previous state
+- `grit diff` - Show changes between commits
+
+#### Plumbing (Low-Level)
+
+- `grit hash-object <file>` - Store file in object database
+- `grit cat-file -p <hash>` - Display object content
+- `grit write-tree` - Create tree from index
+- `grit checkout <hash>` - Restore working directory
+
+### Ignoring Files
 
 Grit supports `.gritignore` files to exclude files from staging and status output. Create a `.gritignore` file in your repository root:
 
@@ -70,25 +89,6 @@ Patterns support:
 - `*.ext` - Match files with specific extensions
 - `dir/` - Ignore directories and their contents
 - `file.txt` - Exact file matches
-
-## Commands
-
-### Porcelain (User-Friendly)
-
-- `grit init` - Initialize repository
-- `grit add <files>` - Stage files for commit
-- `grit status` - Show working directory status
-- `grit commit -m <msg>` - Create commit
-- `grit log` - Show commit history
-- `grit reset` - Reset to previous state
-- `grit diff` - Show changes between commits
-
-### Plumbing (Low-Level)
-
-- `grit hash-object <file>` - Store file in object database
-- `grit cat-file -p <hash>` - Display object content
-- `grit write-tree` - Create tree from index
-- `grit checkout <hash>` - Restore working directory
 
 ## Documentation
 
