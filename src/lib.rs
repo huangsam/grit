@@ -27,6 +27,7 @@
 //! - [add](commands::add): Stage files for commit (`grit add`)
 //! - [status](commands::status): Show working directory status (`grit status`)
 //! - [reset](commands::reset): Reset HEAD and working directory (`grit reset`)
+//! - [diff](commands::diff): Show changes between commits (`grit diff`)
 //!
 //! ### Infrastructure
 //! - [repository]: Repository initialization and management

@@ -40,6 +40,7 @@ grit log --oneline
 - `grit commit -m <msg>` - Create commit
 - `grit log` - Show commit history
 - `grit reset` - Reset to previous state
+- `grit diff` - Show changes between commits
 
 ### Plumbing (Low-Level)
 

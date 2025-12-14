@@ -31,13 +31,15 @@ src/
 ├── commands/ (Porcelain)
 │   ├── add.rs: Staging files (updates Index)
 │   ├── status.rs: Working tree vs Index vs HEAD comparison
-│   └── reset.rs: Moving HEAD and updating Index/Working Tree
+│   ├── reset.rs: Moving HEAD and updating Index/Working Tree
+│   └── diff.rs: Show changes between commits
 └── plumbing/ (Core)
     ├── objects.rs: Store/read Git objects with compression
     ├── trees.rs: Create trees from Index (write-tree)
     ├── commits.rs: Create commits, manage refs/history
     ├── checkout.rs: Restore working dir from snapshots
-    └── index.rs: Git Index binary format reader/writer
+    ├── index.rs: Git Index binary format reader/writer
+    └── diff.rs: Core diff algorithm (Myers)
 ```
 
 ## CLI Commands
@@ -51,6 +53,7 @@ Grit provides a mix of plumbing and porcelain operations:
 - `grit commit -m <msg>`: Create a new commit containing the current contents of the index.
 - `grit log`: Show commit logs.
 - `grit reset [--soft|--mixed|--hard] <commit>`: Reset current HEAD to the specified state.
+- `grit diff <commit_a> <commit_b> [--stat]`: Show changes between two commits.
 
 ### Plumbing (Low-Level)
 - `grit hash-object <file>`: Store file as blob, print SHA-1.
