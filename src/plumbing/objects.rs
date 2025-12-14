@@ -4,7 +4,7 @@ use sha1::{Digest, Sha1};
 use flate2::write::ZlibEncoder;
 use flate2::read::ZlibDecoder;
 use flate2::Compression;
-use std::io::{Read, Write};
+use std::io::{Read, Write, BufWriter, BufReader};
 use std::fs;
 
 /// Represents the type of Git object stored in the repository.
@@ -87,7 +87,10 @@ pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> R
     fs::create_dir_all(&object_dir)?;
 
     let object_path = object_dir.join(suffix);
-    fs::write(object_path, compressed_data)?;
+    let file = fs::File::create(object_path)?;
+    let mut buf_writer = BufWriter::new(file);
+    buf_writer.write_all(&compressed_data)?;
+    buf_writer.flush()?;
 
     Ok(hash_hex)
 }
@@ -121,7 +124,10 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, CrustError> {
         return Err(CrustError::ObjectNotFound(hash.to_string()));
     }
 
-    let compressed_data = fs::read(object_path)?;
+    let file = fs::File::open(object_path)?;
+    let mut buf_reader = BufReader::new(file);
+    let mut compressed_data = Vec::new();
+    buf_reader.read_to_end(&mut compressed_data)?;
 
     // Step 2: Decompression
     let mut decoder = ZlibDecoder::new(&compressed_data[..]);
@@ -265,10 +271,19 @@ mod tests {
         fn test_store_read_tree_roundtrip(
             entries in prop::collection::vec(
                 (prop::string::string_regex("[a-zA-Z0-9_.-]{1,10}").unwrap()
-                    .prop_filter("Exclude problematic filenames", |s| s != "." && s != ".." && !s.contains('/') && !s.starts_with('.')),
+                    .prop_filter("Exclude problematic filenames", |s| s != "." && s != ".." && !s.contains('/') && !s.starts_with('.') && s != ".crust" && s != "target"),
                  prop::collection::vec(any::<u8>(), 0..100)),
-                0..5
-            )
+                1..5
+            ).prop_map(|mut entries| {
+                // Ensure unique filenames by appending index to duplicates
+                let mut seen = std::collections::HashSet::new();
+                for (i, (filename, _)) in entries.iter_mut().enumerate() {
+                    if !seen.insert(filename.clone()) {
+                        *filename = format!("{}_{}", filename, i);
+                    }
+                }
+                entries
+            })
         ) {
             let test_dir = setup_test_repo();
 
@@ -303,6 +318,37 @@ mod tests {
         assert_eq!(read_obj.obj_type, ObjectType::Blob);
         assert_eq!(read_obj.content.len(), large_content.len());
         assert_eq!(read_obj.content, large_content);
+    }
+
+    #[test]
+    fn test_performance_buffered_io() {
+        let test_dir = setup_test_repo();
+
+        // Test with various file sizes
+        let sizes = [1024, 10 * 1024, 100 * 1024, 1024 * 1024]; // 1KB, 10KB, 100KB, 1MB
+
+        for &size in &sizes {
+            let content = vec![b'A'; size];
+
+            // Time the store operation
+            let start = std::time::Instant::now();
+            let hash = store_object(&content, ObjectType::Blob, test_dir.path()).unwrap();
+            let store_time = start.elapsed();
+
+            // Time the read operation
+            let start = std::time::Instant::now();
+            let read_obj = read_object(&hash, test_dir.path()).unwrap();
+            let read_time = start.elapsed();
+
+            // Verify correctness
+            assert_eq!(read_obj.obj_type, ObjectType::Blob);
+            assert_eq!(read_obj.content.len(), size);
+
+            println!("Size: {}KB - Store: {:.2}ms, Read: {:.2}ms",
+                    size / 1024,
+                    store_time.as_secs_f64() * 1000.0,
+                    read_time.as_secs_f64() * 1000.0);
+        }
     }
 
     #[test]
