@@ -2,6 +2,7 @@ mod error;
 mod repository;
 mod plumbing;
 mod cache;
+mod commands;
 
 use clap::{Parser, Subcommand};
 use std::path::Path;
@@ -60,6 +61,11 @@ enum Commands {
         /// Show compact one-line format
         #[arg(short, long)]
         oneline: bool,
+    },
+    /// Add files to the staging area
+    Add {
+        /// Files or patterns to add
+        files: Vec<String>,
     },
 }
 
@@ -123,6 +129,9 @@ fn main() -> Result<(), GritError> {
         }
         Commands::Log { commit, oneline } => {
             show_commit_log(&commit, oneline, Path::new("."))?;
+        }
+        Commands::Add { files } => {
+            commands::add::add_files(&files, Path::new("."))?;
         }
     }
 
