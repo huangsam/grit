@@ -1,8 +1,61 @@
-//! Repository management and initialization
+//! # Repository Management and Initialization Module
 //!
-//! Contains functionality for setting up new Grit repositories,
-//! managing repository structure, and handling repository-level operations.
-//! Ensures proper directory layout and initial configuration.
+//! This module handles Grit repository creation, management, and core operations.
+//! It provides the foundation for all repository-level functionality, ensuring
+//! proper directory structure, configuration, and state management.
+//!
+//! ## Overview
+//!
+//! A Grit repository follows Git's directory structure with a `.grit/` hidden
+//! directory containing all version control metadata. This module manages:
+//! - Repository initialization and setup
+//! - Directory structure validation
+//! - Repository discovery and path resolution
+//! - Core repository operations and utilities
+//!
+//! ## Repository Structure
+//!
+//! ```text
+//! .grit/
+//! ├── HEAD          # Current branch/commit reference
+//! ├── refs/         # Branch and tag references
+//! │   ├── heads/    # Local branches
+//! │   └── tags/     # Tags
+//! ├── objects/      # Object database (blobs, trees, commits)
+//! └── index         # Staging area (binary format)
+//! ```
+//!
+//! ## Key Components
+//!
+//! - `Repository`: Core struct representing a repository instance
+//! - `initialize_repo()`: Creates new repository structure
+//! - `find_repo_root()`: Discovers repository root from any subdirectory
+//! - Repository validation and path utilities
+//!
+//! ## Features
+//!
+//! - Automatic repository discovery (`.grit` directory search)
+//! - Safe initialization with conflict detection
+//! - Cross-platform path handling
+//! - Integration with all Grit operations
+//!
+//! ## Usage
+//!
+//! ```rust
+//! use grit::repository::{Repository, initialize_repo};
+//!
+//! // Initialize new repository
+//! initialize_repo(&Path::new("."))?;
+//!
+//! // Work with existing repository
+//! let repo = Repository::discover()?;
+//! ```
+//!
+//! ## Safety
+//!
+//! - Validates repository integrity before operations
+//! - Prevents accidental initialization in existing repos
+//! - Handles concurrent access safely
 
 use crate::error::GritError;
 use std::fs;
