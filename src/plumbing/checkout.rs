@@ -114,11 +114,19 @@ pub struct TreeEntry {
 }
 
 /// Parses tree entries from raw tree content
+///
+/// Git tree objects store directory contents in a compact binary format:
+/// - Each entry: [mode] [space] [name] [null byte] [20-byte SHA-1 hash]
+/// - Mode: "100644" (regular file), "100755" (executable), "40000" (directory)
+/// - Name: UTF-8 encoded filename
+/// - Hash: Binary SHA-1 hash of the referenced object
+///
+/// Example format: "100644 hello.txt\x00[20 bytes of hash]"
 pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, GritError> {
-    // Compute content hash for caching
+    // Compute content hash for caching - tree parsing is expensive
     let content_hash = hex::encode(Sha1::digest(content));
 
-    // Check cache first
+    // Check cache first - avoid re-parsing identical tree content
     if let Some(cached_entries) = cache::GLOBAL_CACHE.tree_cache.get(&content_hash) {
         return Ok(cached_entries);
     }
@@ -126,25 +134,28 @@ pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, GritError> {
     let mut entries = Vec::new();
     let mut pos = 0;
 
+    // Parse each tree entry from the binary format
     while pos < content.len() {
-        // Find null byte separating mode/name from hash
+        // Git tree format: entries separated by null bytes
+        // Find the null byte that separates "mode name" from the 20-byte hash
         let null_pos = content[pos..].iter().position(|&b| b == 0)
-            .ok_or_else(|| GritError::CorruptObject("Invalid tree entry format".to_string()))?;
+            .ok_or_else(|| GritError::CorruptObject("Invalid tree entry format - missing null separator".to_string()))?;
 
+        // Extract the "mode name" header (everything before null byte)
         let header = &content[pos..pos + null_pos];
-        pos += null_pos + 1;
+        pos += null_pos + 1; // Skip past the null byte
 
-        // Parse mode and name
+        // Parse mode and name from header: "100644 hello.txt"
         let header_str = String::from_utf8_lossy(header);
         let space_pos = header_str.find(' ')
-            .ok_or_else(|| GritError::CorruptObject("Invalid tree entry header".to_string()))?;
+            .ok_or_else(|| GritError::CorruptObject("Invalid tree entry header - missing space separator".to_string()))?;
 
         let mode = header_str[..space_pos].to_string();
         let name = header_str[space_pos + 1..].to_string();
 
-        // Read 20-byte hash
+        // Read the 20-byte binary SHA-1 hash that follows
         if pos + 20 > content.len() {
-            return Err(GritError::CorruptObject("Tree entry truncated".to_string()));
+            return Err(GritError::CorruptObject("Tree entry truncated - incomplete hash".to_string()));
         }
 
         let mut hash = [0u8; 20];
@@ -154,7 +165,7 @@ pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, GritError> {
         entries.push(TreeEntry { mode, name, hash });
     }
 
-    // Cache the parsed entries
+    // Cache the parsed entries for future lookups
     cache::GLOBAL_CACHE.tree_cache.put(content_hash, entries.clone());
 
     Ok(entries)

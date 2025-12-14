@@ -42,6 +42,7 @@ pub struct ObjectCache {
 
 impl ObjectCache {
     /// Create a new object cache with the specified capacity
+    /// Capacity determines how many objects can be cached before eviction begins
     pub fn new(capacity: usize) -> Self {
         let cache = LruCache::new(NonZeroUsize::new(capacity).unwrap());
         ObjectCache {
@@ -49,34 +50,37 @@ impl ObjectCache {
         }
     }
 
-    /// Get an object from the cache
+    /// Retrieve an object from cache by its hash
+    /// Returns None if object is not cached or has been evicted due to LRU policy
     pub fn get(&self, hash: &str) -> Option<Object> {
         self.cache.lock().unwrap().get(hash).cloned()
     }
 
-    /// Insert an object into the cache
+    /// Store an object in the cache with LRU eviction
+    /// If cache is at capacity, least recently used object will be automatically evicted
     pub fn put(&self, hash: String, object: Object) {
         self.cache.lock().unwrap().put(hash, object);
     }
 
-    /// Clear the entire cache
+    /// Clear all cached objects (useful for testing or memory cleanup)
     #[allow(dead_code)]
     pub fn clear(&self) {
         self.cache.lock().unwrap().clear();
     }
 
-    /// Get cache statistics
+    /// Get current number of cached objects (for monitoring/debugging)
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.cache.lock().unwrap().len()
     }
 
-    /// Check if cache is empty
+    /// Check if cache is empty (useful for testing)
     #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.cache.lock().unwrap().is_empty()
     }
 
+    /// Get cache capacity (maximum number of objects that can be cached)
     #[allow(dead_code)]
     pub fn cap(&self) -> usize {
         self.cache.lock().unwrap().cap().get()
@@ -91,6 +95,8 @@ pub struct HashCache {
 
 impl HashCache {
     /// Create a new hash cache with the specified capacity
+    /// Capacity determines how many hash-to-hash mappings can be cached before eviction
+    /// Used to cache expensive SHA-1 computations for object content
     pub fn new(capacity: usize) -> Self {
         let cache = LruCache::new(NonZeroUsize::new(capacity).unwrap());
         HashCache {
@@ -98,17 +104,21 @@ impl HashCache {
         }
     }
 
-    /// Get a cached hash for content
+    /// Retrieve a cached object hash using a content hash as key
+    /// Returns None if mapping is not cached or has been evicted due to LRU policy
+    /// This avoids recomputing SHA-1 for frequently accessed content
     pub fn get(&self, content_hash: &str) -> Option<String> {
         self.cache.lock().unwrap().get(content_hash).cloned()
     }
 
-    /// Cache a computed hash
+    /// Cache the mapping from content hash to computed object hash
+    /// Content hash is used as key, object hash as value
+    /// Enables fast lookup of object hashes for known content hashes
     pub fn put(&self, content_hash: String, object_hash: String) {
         self.cache.lock().unwrap().put(content_hash, object_hash);
     }
 
-    /// Clear the hash cache
+    /// Clear all cached hash mappings (useful for testing or memory cleanup)
     #[allow(dead_code)]
     pub fn clear(&self) {
         self.cache.lock().unwrap().clear();
@@ -123,6 +133,8 @@ pub struct TreeCache {
 
 impl TreeCache {
     /// Create a new tree cache with the specified capacity
+    /// Capacity determines how many parsed tree structures can be cached before eviction
+    /// Tree parsing is expensive due to binary format decoding, so caching is valuable
     pub fn new(capacity: usize) -> Self {
         let cache = LruCache::new(NonZeroUsize::new(capacity).unwrap());
         TreeCache {
@@ -130,20 +142,42 @@ impl TreeCache {
         }
     }
 
-    /// Get parsed tree entries from cache
+    /// Retrieve cached parsed tree entries for a tree object hash
+    /// Returns None if tree hasn't been parsed and cached yet
+    /// Avoids repeated parsing of the same tree objects during checkout operations
     pub fn get(&self, tree_hash: &str) -> Option<Vec<TreeEntry>> {
         self.cache.lock().unwrap().get(tree_hash).cloned()
     }
 
-    /// Cache parsed tree entries
+    /// Cache parsed tree entries for a tree object hash
+    /// Tree hash serves as key, parsed entries as value
+    /// Enables fast access to tree structure without re-parsing binary format
     pub fn put(&self, tree_hash: String, entries: Vec<TreeEntry>) {
         self.cache.lock().unwrap().put(tree_hash, entries);
     }
 
-    /// Clear the tree cache
+    /// Clear all cached tree entries (useful for testing or memory cleanup)
     #[allow(dead_code)]
     pub fn clear(&self) {
         self.cache.lock().unwrap().clear();
+    }
+
+    /// Get current number of cached tree structures (for monitoring)
+    #[allow(dead_code)]
+    pub fn len(&self) -> usize {
+        self.cache.lock().unwrap().len()
+    }
+
+    /// Check if tree cache is empty (useful for testing)
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.cache.lock().unwrap().is_empty()
+    }
+
+    /// Get tree cache capacity (maximum number of tree structures that can be cached)
+    #[allow(dead_code)]
+    pub fn cap(&self) -> usize {
+        self.cache.lock().unwrap().cap().get()
     }
 }
 
@@ -155,7 +189,11 @@ pub struct CacheManager {
 }
 
 impl CacheManager {
-    /// Create a new cache manager with default capacities
+    /// Create a new cache manager with default capacities optimized for performance
+    /// Default capacities are tuned based on typical Git repository usage patterns:
+    /// - Objects: 1000 (most frequently accessed objects)
+    /// - Hashes: 5000 (hash computations are expensive, cache more aggressively)
+    /// - Trees: 2000 (tree parsing is costly, moderate caching)
     pub fn new() -> Self {
         CacheManager {
             object_cache: ObjectCache::new(1000), // Cache 1000 objects
@@ -164,7 +202,11 @@ impl CacheManager {
         }
     }
 
-    /// Create a cache manager with custom capacities
+    /// Create a cache manager with custom capacities for specific use cases
+    /// Allows fine-tuning cache sizes based on repository characteristics:
+    /// - Large repos: increase all capacities
+    /// - Memory-constrained: decrease capacities
+    /// - Hash-heavy workloads: increase hash_capacity
     #[allow(dead_code)]
     pub fn with_capacities(object_capacity: usize, hash_capacity: usize, tree_capacity: usize) -> Self {
         CacheManager {
@@ -174,7 +216,8 @@ impl CacheManager {
         }
     }
 
-    /// Clear all caches
+    /// Clear all caches simultaneously (useful for testing or memory cleanup)
+    /// Ensures clean state across all cache types
     #[allow(dead_code)]
     pub fn clear_all(&self) {
         self.object_cache.clear();
