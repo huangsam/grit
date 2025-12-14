@@ -1,7 +1,7 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use grit::plumbing::trees::write_tree_from_index;
 use grit::plumbing::index::{Index, create_index_entry};
-use grit::plumbing::objects::{store_object, ObjectType};
+use grit::plumbing::objects::{ObjectType, store_object};
+use grit::plumbing::trees::write_tree_from_index;
 use grit::repository::initialize_repo;
 use std::fs;
 use std::path::Path;
@@ -69,6 +69,7 @@ fn create_index_for_bench(path: &Path, repo_root: &Path) -> Index {
 }
 
 fn bench_write_tree_small(c: &mut Criterion) {
+    // Benchmark tree creation from index with 10 small files
     let test_dir = setup_test_repo();
     create_test_files(test_dir.path(), 10, 1);
     let index = create_index_for_bench(test_dir.path(), test_dir.path());
@@ -82,6 +83,7 @@ fn bench_write_tree_small(c: &mut Criterion) {
 }
 
 fn bench_write_tree_medium(c: &mut Criterion) {
+    // Benchmark tree creation from index with 100 small files
     let test_dir = setup_test_repo();
     create_test_files(test_dir.path(), 100, 1);
     let index = create_index_for_bench(test_dir.path(), test_dir.path());
@@ -95,6 +97,7 @@ fn bench_write_tree_medium(c: &mut Criterion) {
 }
 
 fn bench_write_tree_large(c: &mut Criterion) {
+    // Benchmark tree creation from index with 1000 small files
     let test_dir = setup_test_repo();
     create_test_files(test_dir.path(), 1000, 1);
     let index = create_index_for_bench(test_dir.path(), test_dir.path());
@@ -108,6 +111,7 @@ fn bench_write_tree_large(c: &mut Criterion) {
 }
 
 fn bench_write_tree_nested(c: &mut Criterion) {
+    // Benchmark tree creation from deeply nested directory structure
     let test_dir = setup_test_repo();
     create_nested_structure(test_dir.path(), 3, 5);
     let index = create_index_for_bench(test_dir.path(), test_dir.path());
@@ -121,6 +125,7 @@ fn bench_write_tree_nested(c: &mut Criterion) {
 }
 
 fn bench_write_tree_deep(c: &mut Criterion) {
+    // Benchmark tree creation from very deep directory hierarchy
     let test_dir = setup_test_repo();
     create_nested_structure(test_dir.path(), 5, 2);
     let index = create_index_for_bench(test_dir.path(), test_dir.path());

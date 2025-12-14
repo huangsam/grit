@@ -10,6 +10,7 @@ fn setup_test_repo() -> TempDir {
 }
 
 fn bench_store_object_small(c: &mut Criterion) {
+    // Benchmark storing small objects (file content compression and hashing)
     let test_dir = setup_test_repo();
     let content = b"Hello, World! This is a small test file.";
 
@@ -22,6 +23,7 @@ fn bench_store_object_small(c: &mut Criterion) {
 }
 
 fn bench_store_object_medium(c: &mut Criterion) {
+    // Benchmark storing medium-sized objects (100KB content)
     let test_dir = setup_test_repo();
     let content = vec![b'A'; 100 * 1024]; // 100KB
 
@@ -35,6 +37,7 @@ fn bench_store_object_medium(c: &mut Criterion) {
 }
 
 fn bench_store_object_large(c: &mut Criterion) {
+    // Benchmark storing large objects (1MB content)
     let test_dir = setup_test_repo();
     let content = vec![b'B'; 1024 * 1024]; // 1MB
 
@@ -48,6 +51,7 @@ fn bench_store_object_large(c: &mut Criterion) {
 }
 
 fn bench_read_object_small(c: &mut Criterion) {
+    // Benchmark reading small objects (decompression and parsing)
     let test_dir = setup_test_repo();
     let content = b"Hello, World! This is a small test file.";
     let hash = store_object(content, ObjectType::Blob, test_dir.path()).unwrap();
@@ -61,6 +65,7 @@ fn bench_read_object_small(c: &mut Criterion) {
 }
 
 fn bench_read_object_medium(c: &mut Criterion) {
+    // Benchmark reading medium-sized objects (100KB content)
     let test_dir = setup_test_repo();
     let content = vec![b'A'; 100 * 1024]; // 100KB
     let hash = store_object(&content, ObjectType::Blob, test_dir.path()).unwrap();
@@ -74,6 +79,7 @@ fn bench_read_object_medium(c: &mut Criterion) {
 }
 
 fn bench_read_object_large(c: &mut Criterion) {
+    // Benchmark reading large objects (1MB content)
     let test_dir = setup_test_repo();
     let content = vec![b'B'; 1024 * 1024]; // 1MB
     let hash = store_object(&content, ObjectType::Blob, test_dir.path()).unwrap();
@@ -87,6 +93,7 @@ fn bench_read_object_large(c: &mut Criterion) {
 }
 
 fn bench_store_read_roundtrip(c: &mut Criterion) {
+    // Benchmark complete store-then-read cycle for 10KB objects
     let test_dir = setup_test_repo();
 
     c.bench_function("store_read_roundtrip_10kb", |b| {

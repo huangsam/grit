@@ -97,8 +97,8 @@
 //! Contributions should maintain the high-performance characteristics while
 //! ensuring compatibility with Git's specifications.
 
-pub mod plumbing;
-pub mod repository;
-pub mod error;
 pub mod cache;
 pub mod commands;
+pub mod error;
+pub mod plumbing;
+pub mod repository;

@@ -33,14 +33,14 @@
 //! Used by the `diff` porcelain command and internally for operations like
 //! `status` and `commit` to show changes.
 
+use hex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use hex;
 
 use crate::error::GritError;
-use crate::repository::Repository;
-use crate::plumbing::objects;
 use crate::plumbing::checkout::TreeEntry;
+use crate::plumbing::objects;
+use crate::repository::Repository;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DiffStatus {
@@ -123,8 +123,16 @@ pub fn compare_trees(
     let tree_a = objects::read_tree(repo, tree_hash_a)?;
     let tree_b = objects::read_tree(repo, tree_hash_b)?;
 
-    let entries_a: HashMap<&str, &TreeEntry> = tree_a.entries.iter().map(|e| (e.name.as_str(), e)).collect();
-    let entries_b: HashMap<&str, &TreeEntry> = tree_b.entries.iter().map(|e| (e.name.as_str(), e)).collect();
+    let entries_a: HashMap<&str, &TreeEntry> = tree_a
+        .entries
+        .iter()
+        .map(|e| (e.name.as_str(), e))
+        .collect();
+    let entries_b: HashMap<&str, &TreeEntry> = tree_b
+        .entries
+        .iter()
+        .map(|e| (e.name.as_str(), e))
+        .collect();
 
     let mut diffs = Vec::new();
 
@@ -158,7 +166,11 @@ pub fn compare_trees(
                     hash_a: hex::encode(entry_a.hash),
                     mode_b,
                     hash_b: hex::encode(entry_b.hash),
-                    status: if mode_a != mode_b { DiffStatus::TypeChange } else { DiffStatus::Modified },
+                    status: if mode_a != mode_b {
+                        DiffStatus::TypeChange
+                    } else {
+                        DiffStatus::Modified
+                    },
                 });
             }
             // If same, do nothing
@@ -183,7 +195,12 @@ pub fn compare_trees(
             let mode_a = u32::from_str_radix(&entry_a.mode, 8).unwrap_or(0);
             let mode_b = u32::from_str_radix(&entry_b.mode, 8).unwrap_or(0);
             if mode_a == 0o040000 && mode_b == 0o040000 && entry_a.hash != entry_b.hash {
-                let sub_diffs = compare_trees(repo, &hex::encode(entry_a.hash), &hex::encode(entry_b.hash), &prefix.join(name))?;
+                let sub_diffs = compare_trees(
+                    repo,
+                    &hex::encode(entry_a.hash),
+                    &hex::encode(entry_b.hash),
+                    &prefix.join(name),
+                )?;
                 diffs.extend(sub_diffs);
             }
         }
@@ -255,7 +272,13 @@ pub fn get_file_deltas(content_a: &str, content_b: &str, path: &Path) -> (String
             let add_count = j - start_j;
             deletions += del_count;
             insertions += add_count;
-            output.push_str(&format!("@@ -{},{} +{},{} @@\n", start_i + 1, del_count, start_j + 1, add_count));
+            output.push_str(&format!(
+                "@@ -{},{} +{},{} @@\n",
+                start_i + 1,
+                del_count,
+                start_j + 1,
+                add_count
+            ));
             for line in lines_a.iter().take(i).skip(start_i) {
                 output.push_str(&format!("-{}\n", line));
             }
@@ -269,7 +292,13 @@ pub fn get_file_deltas(content_a: &str, content_b: &str, path: &Path) -> (String
     if i < lines_a.len() {
         let del_count = lines_a.len() - i;
         deletions += del_count;
-        output.push_str(&format!("@@ -{},{} +{},{} @@\n", i + 1, del_count, j + 1, 0));
+        output.push_str(&format!(
+            "@@ -{},{} +{},{} @@\n",
+            i + 1,
+            del_count,
+            j + 1,
+            0
+        ));
         for line in lines_a.iter().skip(i) {
             output.push_str(&format!("-{}\n", line));
         }
@@ -277,7 +306,13 @@ pub fn get_file_deltas(content_a: &str, content_b: &str, path: &Path) -> (String
     if j < lines_b.len() {
         let add_count = lines_b.len() - j;
         insertions += add_count;
-        output.push_str(&format!("@@ -{},{} +{},{} @@\n", i + 1, 0, j + 1, add_count));
+        output.push_str(&format!(
+            "@@ -{},{} +{},{} @@\n",
+            i + 1,
+            0,
+            j + 1,
+            add_count
+        ));
         for line in lines_b.iter().skip(j) {
             output.push_str(&format!("+{}\n", line));
         }

@@ -29,8 +29,8 @@
 //! at a specific point in time. They can also be used for comparing directory states.
 
 use crate::error::GritError;
-use crate::plumbing::objects::{ObjectType, store_object};
 use crate::plumbing::index::{Index, IndexEntry};
+use crate::plumbing::objects::{ObjectType, store_object};
 use std::path::Path;
 
 /// Represents a single entry in a Git tree object.
@@ -100,7 +100,11 @@ pub fn write_tree_from_index(index: &Index, repo_root: &Path) -> Result<String, 
     build_tree_recursive(&index.entries, 0, repo_root)
 }
 
-fn build_tree_recursive(entries: &[IndexEntry], prefix_len: usize, repo_root: &Path) -> Result<String, GritError> {
+fn build_tree_recursive(
+    entries: &[IndexEntry],
+    prefix_len: usize,
+    repo_root: &Path,
+) -> Result<String, GritError> {
     let mut tree_entries = Vec::new();
     let mut i = 0;
 
@@ -123,7 +127,8 @@ fn build_tree_recursive(entries: &[IndexEntry], prefix_len: usize, repo_root: &P
             }
 
             // Recurse to create subtree
-            let subtree_hash_hex = build_tree_recursive(&entries[i..j], full_dir_prefix.len(), repo_root)?;
+            let subtree_hash_hex =
+                build_tree_recursive(&entries[i..j], full_dir_prefix.len(), repo_root)?;
             let subtree_hash = hex::decode(&subtree_hash_hex)
                 .map_err(|_| GritError::CorruptObject("Invalid hash".to_string()))?;
 
@@ -147,8 +152,16 @@ fn build_tree_recursive(entries: &[IndexEntry], prefix_len: usize, repo_root: &P
 
     // Sort entries by name, treating directories as if they end with '/'
     tree_entries.sort_by(|a, b| {
-        let a_name = if a.mode == "40000" { format!("{}/", a.name) } else { a.name.clone() };
-        let b_name = if b.mode == "40000" { format!("{}/", b.name) } else { b.name.clone() };
+        let a_name = if a.mode == "40000" {
+            format!("{}/", a.name)
+        } else {
+            a.name.clone()
+        };
+        let b_name = if b.mode == "40000" {
+            format!("{}/", b.name)
+        } else {
+            b.name.clone()
+        };
         a_name.cmp(&b_name)
     });
 
@@ -194,7 +207,11 @@ pub fn create_tree_for_testing(path: &Path, repo_root: &Path) -> Result<String, 
 }
 
 #[cfg(test)]
-fn add_to_index_recursive(path: &Path, repo_root: &Path, index: &mut Index) -> Result<(), GritError> {
+fn add_to_index_recursive(
+    path: &Path,
+    repo_root: &Path,
+    index: &mut Index,
+) -> Result<(), GritError> {
     for entry in std::fs::read_dir(path)? {
         let entry = entry?;
         let file_name = entry.file_name().to_string_lossy().to_string();
@@ -212,7 +229,8 @@ fn add_to_index_recursive(path: &Path, repo_root: &Path, index: &mut Index) -> R
             let mut hash_array = [0u8; 20];
             hash_array.copy_from_slice(&hash_bytes);
 
-            let index_entry = crate::plumbing::index::create_index_entry(&file_path, &hash_array, repo_root)?;
+            let index_entry =
+                crate::plumbing::index::create_index_entry(&file_path, &hash_array, repo_root)?;
             index.add_entry(index_entry);
         }
     }

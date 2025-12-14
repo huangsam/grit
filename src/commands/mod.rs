@@ -31,5 +31,5 @@
 
 pub mod add;
 pub mod diff;
-pub mod status;
 pub mod reset;
+pub mod status;

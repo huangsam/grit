@@ -43,14 +43,15 @@ pub fn load_ignore_patterns(repo_root: &Path) -> Vec<String> {
     let mut patterns = Vec::new();
     let gritignore_path = repo_root.join(".gritignore");
     if gritignore_path.exists()
-        && let Ok(content) = fs::read_to_string(&gritignore_path) {
-            for line in content.lines() {
-                let trimmed = line.trim();
-                if !trimmed.is_empty() && !trimmed.starts_with('#') {
-                    patterns.push(trimmed.to_string());
-                }
+        && let Ok(content) = fs::read_to_string(&gritignore_path)
+    {
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() && !trimmed.starts_with('#') {
+                patterns.push(trimmed.to_string());
             }
         }
+    }
     patterns
 }
 
@@ -106,7 +107,11 @@ mod tests {
         let repo_root = temp_dir.path();
 
         // Create .gritignore
-        fs::write(repo_root.join(".gritignore"), "*.tmp\nbuild/\n# comment\n\nexact_file.txt").unwrap();
+        fs::write(
+            repo_root.join(".gritignore"),
+            "*.tmp\nbuild/\n# comment\n\nexact_file.txt",
+        )
+        .unwrap();
 
         let patterns = load_ignore_patterns(repo_root);
         assert_eq!(patterns.len(), 3);
@@ -147,7 +152,11 @@ mod tests {
 
     #[test]
     fn test_is_ignored_multiple_patterns() {
-        let patterns = vec!["*.tmp".to_string(), "build/".to_string(), "exact.txt".to_string()];
+        let patterns = vec![
+            "*.tmp".to_string(),
+            "build/".to_string(),
+            "exact.txt".to_string(),
+        ];
 
         assert!(is_ignored(Path::new("file.tmp"), &patterns));
         assert!(is_ignored(Path::new("build/file.txt"), &patterns));

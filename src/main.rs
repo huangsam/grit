@@ -10,7 +10,7 @@ use crate::plumbing::commits::{create_commit, get_current_commit, show_commit_lo
 use crate::plumbing::index::read_index;
 use crate::plumbing::objects::{ObjectType, read_object, store_object};
 use crate::plumbing::trees::write_tree_from_index;
-use crate::repository::{initialize_repo, Repository};
+use crate::repository::{Repository, initialize_repo};
 use clap::{Parser, Subcommand};
 use std::fs;
 use std::io::Write;
@@ -178,14 +178,23 @@ fn main() -> Result<(), GritError> {
         Commands::Status => {
             commands::status::show_status(Path::new("."))?;
         }
-        Commands::Reset { commit, hard, mixed: _, soft, paths } => {
+        Commands::Reset {
+            commit,
+            hard,
+            mixed: _,
+            soft,
+            paths,
+        } => {
             if !paths.is_empty() {
                 if hard || soft {
-                    return Err(GritError::RepositoryError("Cannot use --hard or --soft with paths".to_string()));
+                    return Err(GritError::RepositoryError(
+                        "Cannot use --hard or --soft with paths".to_string(),
+                    ));
                 }
 
                 let commit_hash = if commit == "HEAD" {
-                    get_current_commit(Path::new("."))?.ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
+                    get_current_commit(Path::new("."))?
+                        .ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
                 } else {
                     commit
                 };
@@ -201,7 +210,8 @@ fn main() -> Result<(), GritError> {
                 };
 
                 let commit_hash = if commit == "HEAD" {
-                    get_current_commit(Path::new("."))?.ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
+                    get_current_commit(Path::new("."))?
+                        .ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
                 } else {
                     commit
                 };
@@ -209,7 +219,11 @@ fn main() -> Result<(), GritError> {
                 commands::reset::reset(&commit_hash, mode, Path::new("."))?;
             }
         }
-        Commands::Diff { hash_a, hash_b, stat } => {
+        Commands::Diff {
+            hash_a,
+            hash_b,
+            stat,
+        } => {
             let repo = Repository::new(Path::new("."));
             commands::diff::run_diff_command(&repo, &hash_a, &hash_b, stat)?;
         }

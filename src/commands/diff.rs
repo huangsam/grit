@@ -49,8 +49,8 @@
 use std::path::Path;
 
 use crate::error::GritError;
-use crate::plumbing::diff::{compare_trees, get_file_deltas, DiffStatus};
-use crate::plumbing::objects::{read_commit, read_blob};
+use crate::plumbing::diff::{DiffStatus, compare_trees, get_file_deltas};
+use crate::plumbing::objects::{read_blob, read_commit};
 use crate::repository::Repository;
 
 /// Execute the diff command to show changes between two commits
@@ -84,7 +84,12 @@ use crate::repository::Repository;
 /// // Show only statistics
 /// run_diff_command(&repo, "abc123", "def456", true).unwrap();
 /// ```
-pub fn run_diff_command(repo: &Repository, hash_a: &str, hash_b: &str, stat: bool) -> Result<(), GritError> {
+pub fn run_diff_command(
+    repo: &Repository,
+    hash_a: &str,
+    hash_b: &str,
+    stat: bool,
+) -> Result<(), GritError> {
     // Get tree hashes from commits
     let commit_a = read_commit(repo, hash_a)?;
     let commit_b = read_commit(repo, hash_b)?;
@@ -130,16 +135,26 @@ pub fn run_diff_command(repo: &Repository, hash_a: &str, hash_b: &str, stat: boo
             let total_changes = *ins + *del;
             if total_changes > 0 {
                 let bar_length = total_changes.min(20);
-                let plus_count = ((*ins as f32 / total_changes as f32) * bar_length as f32).round() as usize;
+                let plus_count =
+                    ((*ins as f32 / total_changes as f32) * bar_length as f32).round() as usize;
                 let minus_count = bar_length - plus_count;
                 let pluses = "+".repeat(plus_count);
                 let minuses = "-".repeat(minus_count);
-                println!(" {} | {} {}{}", path.display(), total_changes, pluses, minuses);
+                println!(
+                    " {} | {} {}{}",
+                    path.display(),
+                    total_changes,
+                    pluses,
+                    minuses
+                );
             } else {
                 println!(" {} | 0", path.display());
             }
         }
-        println!(" {} files changed, {} insertions(+), {} deletions(-)", num_files, total_insertions, total_deletions);
+        println!(
+            " {} files changed, {} insertions(+), {} deletions(-)",
+            num_files, total_insertions, total_deletions
+        );
     } else {
         // Print diffs
         for entry in diffs {
@@ -151,7 +166,11 @@ pub fn run_diff_command(repo: &Repository, hash_a: &str, hash_b: &str, stat: boo
                     println!("{}", delta);
                 }
                 DiffStatus::Added => {
-                    println!("diff --git a/{} b/{}", entry.path.display(), entry.path.display());
+                    println!(
+                        "diff --git a/{} b/{}",
+                        entry.path.display(),
+                        entry.path.display()
+                    );
                     println!("new file mode {:o}", entry.mode_b);
                     println!("index 0000000..{}", &entry.hash_b[..7]);
                     println!("--- /dev/null");
@@ -163,7 +182,11 @@ pub fn run_diff_command(repo: &Repository, hash_a: &str, hash_b: &str, stat: boo
                     }
                 }
                 DiffStatus::Deleted => {
-                    println!("diff --git a/{} b/{}", entry.path.display(), entry.path.display());
+                    println!(
+                        "diff --git a/{} b/{}",
+                        entry.path.display(),
+                        entry.path.display()
+                    );
                     println!("deleted file mode {:o}", entry.mode_a);
                     println!("index {}..0000000", &entry.hash_a[..7]);
                     println!("--- a/{}", entry.path.display());
@@ -175,7 +198,11 @@ pub fn run_diff_command(repo: &Repository, hash_a: &str, hash_b: &str, stat: boo
                     }
                 }
                 DiffStatus::TypeChange => {
-                    println!("diff --git a/{} b/{}", entry.path.display(), entry.path.display());
+                    println!(
+                        "diff --git a/{} b/{}",
+                        entry.path.display(),
+                        entry.path.display()
+                    );
                     println!("old mode {:o}", entry.mode_a);
                     println!("new mode {:o}", entry.mode_b);
                     // Could show content diff if both are blobs

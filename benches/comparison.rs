@@ -1,6 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use std::process::Command;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::path::PathBuf;
+use std::process::Command;
 use tempfile::TempDir;
 
 fn grit_binary_path() -> PathBuf {
@@ -12,10 +12,22 @@ fn grit_binary_path() -> PathBuf {
 fn setup_repo() -> TempDir {
     let dir = TempDir::new().unwrap();
     // Create sample files for the repo
-    std::fs::write(dir.path().join("file1.txt"), "Hello, world! This is file 1.").unwrap();
-    std::fs::write(dir.path().join("file2.txt"), "Hello, world! This is file 2.").unwrap();
+    std::fs::write(
+        dir.path().join("file1.txt"),
+        "Hello, world! This is file 1.",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("file2.txt"),
+        "Hello, world! This is file 2.",
+    )
+    .unwrap();
     std::fs::create_dir(dir.path().join("subdir")).unwrap();
-    std::fs::write(dir.path().join("subdir/file3.txt"), "Hello, world! This is file 3.").unwrap();
+    std::fs::write(
+        dir.path().join("subdir/file3.txt"),
+        "Hello, world! This is file 3.",
+    )
+    .unwrap();
     dir
 }
 
@@ -36,6 +48,7 @@ fn run_git_command(dir: &std::path::Path, args: &[&str]) {
 }
 
 fn bench_grit_init(c: &mut Criterion) {
+    // Benchmark Grit repository initialization performance
     c.bench_function("grit_init", |b| {
         b.iter(|| {
             let dir = black_box(setup_repo());
@@ -45,6 +58,7 @@ fn bench_grit_init(c: &mut Criterion) {
 }
 
 fn bench_git_init(c: &mut Criterion) {
+    // Benchmark Git repository initialization performance for comparison
     c.bench_function("git_init", |b| {
         b.iter(|| {
             let dir = black_box(setup_repo());
@@ -54,6 +68,7 @@ fn bench_git_init(c: &mut Criterion) {
 }
 
 fn bench_grit_add(c: &mut Criterion) {
+    // Benchmark Grit file staging performance
     c.bench_function("grit_add", |b| {
         b.iter(|| {
             let dir = black_box(setup_repo());
@@ -64,6 +79,7 @@ fn bench_grit_add(c: &mut Criterion) {
 }
 
 fn bench_git_add(c: &mut Criterion) {
+    // Benchmark Git file staging performance for comparison
     c.bench_function("git_add", |b| {
         b.iter(|| {
             let dir = black_box(setup_repo());
@@ -74,6 +90,7 @@ fn bench_git_add(c: &mut Criterion) {
 }
 
 fn bench_grit_status(c: &mut Criterion) {
+    // Benchmark Grit status command performance
     c.bench_function("grit_status", |b| {
         b.iter(|| {
             let dir = black_box(setup_repo());
@@ -85,6 +102,7 @@ fn bench_grit_status(c: &mut Criterion) {
 }
 
 fn bench_git_status(c: &mut Criterion) {
+    // Benchmark Git status command performance for comparison
     c.bench_function("git_status", |b| {
         b.iter(|| {
             let dir = black_box(setup_repo());
@@ -96,6 +114,7 @@ fn bench_git_status(c: &mut Criterion) {
 }
 
 fn bench_grit_commit(c: &mut Criterion) {
+    // Benchmark Grit commit creation performance
     c.bench_function("grit_commit", |b| {
         b.iter(|| {
             let dir = black_box(setup_repo());
@@ -107,6 +126,7 @@ fn bench_grit_commit(c: &mut Criterion) {
 }
 
 fn bench_git_commit(c: &mut Criterion) {
+    // Benchmark Git commit creation performance for comparison
     c.bench_function("git_commit", |b| {
         b.iter(|| {
             let dir = black_box(setup_repo());

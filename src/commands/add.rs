@@ -37,7 +37,7 @@
 //! - Incremental updates to avoid full index rewrites
 
 use crate::error::GritError;
-use crate::plumbing::ignores::{load_ignore_patterns, is_ignored};
+use crate::plumbing::ignores::{is_ignored, load_ignore_patterns};
 use crate::plumbing::index::{create_index_entry, read_index, write_index};
 use crate::plumbing::objects::{ObjectType, store_object};
 use std::collections::HashSet;
@@ -165,7 +165,10 @@ fn collect_all_files(
         let path = entry.path();
 
         // Skip .grit directory and .gritignore file
-        if path.file_name().is_some_and(|n| n == ".grit" || n == ".gritignore") {
+        if path
+            .file_name()
+            .is_some_and(|n| n == ".grit" || n == ".gritignore")
+        {
             continue;
         }
 
@@ -192,7 +195,10 @@ fn collect_files_from_directory(
         let path = entry.path();
 
         // Skip .grit directory and .gritignore file
-        if path.file_name().is_some_and(|n| n == ".grit" || n == ".gritignore") {
+        if path
+            .file_name()
+            .is_some_and(|n| n == ".grit" || n == ".gritignore")
+        {
             continue;
         }
 

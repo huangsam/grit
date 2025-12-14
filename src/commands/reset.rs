@@ -35,12 +35,12 @@
 //! - Backup recommendations for hard resets
 
 use crate::error::GritError;
+use crate::plumbing::checkout::{parse_tree_entries, restore_snapshot};
 use crate::plumbing::commits::update_ref;
 use crate::plumbing::index::{Index, IndexEntry, write_index};
-use crate::plumbing::objects::{read_object, ObjectType};
-use crate::plumbing::checkout::{restore_snapshot, parse_tree_entries};
-use std::path::Path;
+use crate::plumbing::objects::{ObjectType, read_object};
 use std::fs;
+use std::path::Path;
 
 #[derive(Debug, Clone, Copy)]
 /// Reset modes for the `grit reset` command
@@ -109,7 +109,10 @@ pub fn reset(commit_hash: &str, mode: ResetMode, repo_root: &Path) -> Result<(),
     // 1. Validate commit exists
     let object = read_object(commit_hash, repo_root)?;
     if object.obj_type != ObjectType::Commit {
-        return Err(GritError::RepositoryError(format!("{} is not a commit", commit_hash)));
+        return Err(GritError::RepositoryError(format!(
+            "{} is not a commit",
+            commit_hash
+        )));
     }
 
     // Read old index for hard reset cleanup
@@ -204,7 +207,10 @@ pub fn reset_paths(commit_hash: &str, paths: &[String], repo_root: &Path) -> Res
     // 1. Get tree from commit
     let object = read_object(commit_hash, repo_root)?;
     if object.obj_type != ObjectType::Commit {
-        return Err(GritError::RepositoryError(format!("{} is not a commit", commit_hash)));
+        return Err(GritError::RepositoryError(format!(
+            "{} is not a commit",
+            commit_hash
+        )));
     }
     let commit_content = String::from_utf8_lossy(&object.content);
     let tree_hash = extract_tree_hash(&commit_content)?;
@@ -236,7 +242,8 @@ fn matches_path(entry_path: &str, target_path: &str) -> bool {
 }
 
 fn extract_tree_hash(commit_content: &str) -> Result<String, GritError> {
-    commit_content.lines()
+    commit_content
+        .lines()
         .find(|line| line.starts_with("tree "))
         .map(|line| line[5..].to_string())
         .ok_or_else(|| GritError::CorruptObject("Commit missing tree hash".to_string()))
@@ -248,7 +255,12 @@ fn build_index_from_tree(tree_hash: &str, repo_root: &Path) -> Result<Index, Gri
     Ok(index)
 }
 
-fn collect_index_entries(tree_hash: &str, current_path: &Path, index: &mut Index, repo_root: &Path) -> Result<(), GritError> {
+fn collect_index_entries(
+    tree_hash: &str,
+    current_path: &Path,
+    index: &mut Index,
+    repo_root: &Path,
+) -> Result<(), GritError> {
     let tree_obj = read_object(tree_hash, repo_root)?;
     let entries = parse_tree_entries(&tree_obj.content)?;
 

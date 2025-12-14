@@ -270,8 +270,6 @@ pub fn show_commit_log(start_hash: &str, oneline: bool, repo_root: &Path) -> Res
     Ok(())
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -515,8 +513,6 @@ mod tests {
         assert!(update_ref("refs/heads/main.", test_hash, test_dir.path()).is_err());
         assert!(update_ref("HEAD with spaces", test_hash, test_dir.path()).is_err());
     }
-
-
 
     #[test]
     fn test_show_commit_log_no_commits() {

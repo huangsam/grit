@@ -425,7 +425,8 @@ pub fn read_blob(repo: &crate::repository::Repository, hash: &str) -> Result<Str
     if object.obj_type != ObjectType::Blob {
         return Err(GritError::CorruptObject("Expected blob object".to_string()));
     }
-    String::from_utf8(object.content).map_err(|_| GritError::CorruptObject("Invalid UTF-8 in blob".to_string()))
+    String::from_utf8(object.content)
+        .map_err(|_| GritError::CorruptObject("Invalid UTF-8 in blob".to_string()))
 }
 
 /// Reads and parses a commit object from the repository
@@ -463,7 +464,9 @@ pub fn read_blob(repo: &crate::repository::Repository, hash: &str) -> Result<Str
 pub fn read_commit(repo: &crate::repository::Repository, hash: &str) -> Result<Commit, GritError> {
     let object = read_object(hash, &repo.root)?;
     if object.obj_type != ObjectType::Commit {
-        return Err(GritError::CorruptObject("Expected commit object".to_string()));
+        return Err(GritError::CorruptObject(
+            "Expected commit object".to_string(),
+        ));
     }
     let content = String::from_utf8_lossy(&object.content);
     parse_commit(&content)
@@ -496,10 +499,13 @@ fn parse_commit(content: &str) -> Result<Commit, GritError> {
     }
 
     Ok(Commit {
-        tree_hash: tree_hash.ok_or_else(|| GritError::CorruptObject("Missing tree in commit".to_string()))?,
+        tree_hash: tree_hash
+            .ok_or_else(|| GritError::CorruptObject("Missing tree in commit".to_string()))?,
         parent_hashes,
-        author: author.ok_or_else(|| GritError::CorruptObject("Missing author in commit".to_string()))?,
-        committer: committer.ok_or_else(|| GritError::CorruptObject("Missing committer in commit".to_string()))?,
+        author: author
+            .ok_or_else(|| GritError::CorruptObject("Missing author in commit".to_string()))?,
+        committer: committer
+            .ok_or_else(|| GritError::CorruptObject("Missing committer in commit".to_string()))?,
         message: message.trim().to_string(),
     })
 }
@@ -714,7 +720,8 @@ mod tests {
 
         // Create tree snapshot
         let tree_hash =
-            crate::plumbing::trees::create_tree_for_testing(test_dir.path(), test_dir.path()).unwrap();
+            crate::plumbing::trees::create_tree_for_testing(test_dir.path(), test_dir.path())
+                .unwrap();
 
         // Read and verify tree contains all files
         let tree_obj = read_object(&tree_hash, test_dir.path()).unwrap();

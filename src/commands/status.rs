@@ -39,7 +39,7 @@
 use crate::error::GritError;
 use crate::plumbing::checkout::parse_tree_entries;
 use crate::plumbing::commits::get_current_commit;
-use crate::plumbing::ignores::{load_ignore_patterns, is_ignored};
+use crate::plumbing::ignores::{is_ignored, load_ignore_patterns};
 use crate::plumbing::index::read_index;
 use crate::plumbing::objects::read_object;
 use sha1::{Digest, Sha1};
