@@ -84,12 +84,6 @@ target/
 secret.txt
 ```
 
-Patterns support:
-
-- `*.ext` - Match files with specific extensions
-- `dir/` - Ignore directories and their contents
-- `file.txt` - Exact file matches
-
 ## Documentation
 
 To learn more about Grit's architecture and API, generate and view the documentation with:
