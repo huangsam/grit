@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use crust::plumbing::trees::make_snapshot;
-use crust::repository::initialize_repo;
+use grit::plumbing::trees::make_snapshot;
+use grit::repository::initialize_repo;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;

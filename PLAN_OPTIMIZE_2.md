@@ -1,7 +1,7 @@
-# Crust Performance Optimization Plan - Phase 2
+# Grit Performance Optimization Plan - Phase 2
 
 ## Overview
-This document outlines the performance optimization strategy for Crust, a minimal Git plumbing clone in Rust. Phase 2 focuses on implementing high-impact, low-risk optimizations to improve I/O performance and computational efficiency.
+This document outlines the performance optimization strategy for Grit, a minimal Git plumbing clone in Rust. Phase 2 focuses on implementing high-impact, low-risk optimizations to improve I/O performance and computational efficiency.
 
 ## Current Status
 - ✅ Core plumbing functionality implemented and tested

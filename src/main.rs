@@ -7,16 +7,16 @@ use clap::{Parser, Subcommand};
 use std::path::Path;
 use std::fs;
 use std::io::Write;
-use crate::error::CrustError;
+use crate::error::GritError;
 use crate::repository::initialize_repo;
 use crate::plumbing::objects::{store_object, read_object, ObjectType};
 use crate::plumbing::trees::make_snapshot;
 use crate::plumbing::commits::{create_commit, update_ref, get_current_commit};
 use crate::plumbing::checkout::restore_snapshot;
 
-/// Crust - A minimal Git plumbing clone in Rust
+/// Grit - A minimal Git plumbing clone in Rust
 #[derive(Parser)]
-#[command(name = "crust")]
+#[command(name = "grit")]
 #[command(about = "Minimal plumbing implementation")]
 struct Cli {
     #[command(subcommand)]
@@ -25,7 +25,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Initialize a new Crust repository
+    /// Initialize a new Grit repository
     Init,
     /// Store a file in the object database
     HashObject {
@@ -52,13 +52,13 @@ enum Commands {
     },
 }
 
-fn main() -> Result<(), CrustError> {
+fn main() -> Result<(), GritError> {
     let cli = Cli::parse();
 
     match cli.command {
         Commands::Init => {
             initialize_repo(Path::new("."))?;
-            println!("Initialized empty Crust repository");
+            println!("Initialized empty Grit repository");
         }
         Commands::HashObject { file } => {
             let path = Path::new(&file);
@@ -95,7 +95,7 @@ fn main() -> Result<(), CrustError> {
             let commit_hash = create_commit(&tree_hash, parent_hash, &message, Path::new("."))?;
 
             // Update the current branch or HEAD to point to the new commit
-            let head_path = Path::new(".crust").join("HEAD");
+            let head_path = Path::new(".grit").join("HEAD");
             let head_content = fs::read_to_string(&head_path)?;
             let current_ref = if let Some(ref_name) = head_content.strip_prefix("ref: ") {
                 ref_name.trim().to_string()
@@ -126,18 +126,18 @@ mod integration_tests {
         TempDir::new().unwrap()
     }
 
-    fn run_crust_command(test_dir: &TempDir, args: &[&str]) -> Result<String, String> {
-        let crust_binary = env::current_exe()
+    fn run_grit_command(test_dir: &TempDir, args: &[&str]) -> Result<String, String> {
+        let grit_binary = env::current_exe()
             .map_err(|e| format!("Failed to get current exe: {}", e))?
             .parent()
             .unwrap()
             .parent()
             .unwrap()
-            .join("crust");
+            .join("grit");
 
-        println!("Running: {} {:?} in {:?}", crust_binary.display(), args, test_dir);
+        println!("Running: {} {:?} in {:?}", grit_binary.display(), args, test_dir);
 
-        let output = Command::new(&crust_binary)
+        let output = Command::new(&grit_binary)
             .args(args)
             .current_dir(test_dir)
             .output()
@@ -162,43 +162,43 @@ mod integration_tests {
         let test_dir = setup_integration_test();
 
         // Initialize repository
-        let result = run_crust_command(&test_dir, &["init"]);
+        let result = run_grit_command(&test_dir, &["init"]);
         assert!(result.is_ok(), "Init failed: {:?}", result);
 
-        // Verify .crust directory exists
-        assert!(test_dir.path().join(".crust").exists());
-        assert!(test_dir.path().join(".crust/objects").exists());
-        assert!(test_dir.path().join(".crust/refs").exists());
+        // Verify .grit directory exists
+        assert!(test_dir.path().join(".grit").exists());
+        assert!(test_dir.path().join(".grit/objects").exists());
+        assert!(test_dir.path().join(".grit/refs").exists());
 
         // Create a test file
         fs::write(test_dir.path().join("hello.txt"), "Hello, World!").unwrap();
 
         // Hash the file
-        let hash_result = run_crust_command(&test_dir, &["hash-object", "hello.txt"]);
+        let hash_result = run_grit_command(&test_dir, &["hash-object", "hello.txt"]);
         assert!(hash_result.is_ok(), "Hash-object failed: {:?}", hash_result);
         let blob_hash = hash_result.unwrap();
         assert_eq!(blob_hash.len(), 40);
 
         // Create tree snapshot
-        let tree_result = run_crust_command(&test_dir, &["write-tree"]);
+        let tree_result = run_grit_command(&test_dir, &["write-tree"]);
         assert!(tree_result.is_ok(), "Write-tree failed: {:?}", tree_result);
         let tree_hash = tree_result.unwrap();
         assert_eq!(tree_hash.len(), 40);
 
         // Create commit
-        let commit_result = run_crust_command(&test_dir, &["commit", "--message", "Initial commit"]);
+        let commit_result = run_grit_command(&test_dir, &["commit", "--message", "Initial commit"]);
         assert!(commit_result.is_ok(), "Commit failed: {:?}", commit_result);
         let commit_hash = commit_result.unwrap();
         assert_eq!(commit_hash.len(), 40);
 
         // Verify commit object exists
-        let commit_file = test_dir.path().join(".crust/objects")
+        let commit_file = test_dir.path().join(".grit/objects")
             .join(&commit_hash[..2])
             .join(&commit_hash[2..]);
         assert!(commit_file.exists(), "Commit object file should exist");
 
         // Read the commit
-        let cat_result = run_crust_command(&test_dir, &["cat-file", &commit_hash]);
+        let cat_result = run_grit_command(&test_dir, &["cat-file", &commit_hash]);
         assert!(cat_result.is_ok(), "Cat-file failed: {:?}", cat_result);
         let commit_content = cat_result.unwrap();
         assert!(commit_content.contains("tree"));
@@ -212,12 +212,12 @@ mod integration_tests {
         let test_dir = setup_integration_test();
 
         // Try to initialize twice
-        let _ = run_crust_command(&test_dir, &["init"]);
-        let double_init = run_crust_command(&test_dir, &["init"]);
+        let _ = run_grit_command(&test_dir, &["init"]);
+        let double_init = run_grit_command(&test_dir, &["init"]);
         assert!(double_init.is_err(), "Double init should fail");
 
         // Try to read nonexistent object
-        let nonexistent = run_crust_command(&test_dir, &["cat-file", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]);
+        let nonexistent = run_grit_command(&test_dir, &["cat-file", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]);
         assert!(nonexistent.is_err(), "Reading nonexistent object should fail");
     }
 
@@ -226,23 +226,23 @@ mod integration_tests {
         let test_dir = setup_integration_test();
 
         // Initialize and create first commit
-        run_crust_command(&test_dir, &["init"]).unwrap();
+        run_grit_command(&test_dir, &["init"]).unwrap();
         fs::write(test_dir.path().join("file1.txt"), "Content 1").unwrap();
-        run_crust_command(&test_dir, &["commit", "--message", "First commit"]).unwrap();
+        run_grit_command(&test_dir, &["commit", "--message", "First commit"]).unwrap();
 
         // Create second commit
         fs::write(test_dir.path().join("file2.txt"), "Content 2").unwrap();
-        let commit_result = run_crust_command(&test_dir, &["commit", "--message", "Second commit"]);
+        let commit_result = run_grit_command(&test_dir, &["commit", "--message", "Second commit"]);
         assert!(commit_result.is_ok(), "Second commit failed: {:?}", commit_result);
 
         // Verify HEAD points to new commit
-        let head_content = fs::read_to_string(test_dir.path().join(".crust/HEAD")).unwrap();
+        let head_content = fs::read_to_string(test_dir.path().join(".grit/HEAD")).unwrap();
         let head_ref = head_content.trim().strip_prefix("ref: ").unwrap();
-        let branch_content = fs::read_to_string(test_dir.path().join(".crust").join(head_ref)).unwrap();
+        let branch_content = fs::read_to_string(test_dir.path().join(".grit").join(head_ref)).unwrap();
         let latest_commit = branch_content.trim();
 
         // Read the latest commit
-        let cat_result = run_crust_command(&test_dir, &["cat-file", latest_commit]);
+        let cat_result = run_grit_command(&test_dir, &["cat-file", latest_commit]);
         assert!(cat_result.is_ok());
         let commit_content = cat_result.unwrap();
         assert!(commit_content.contains("parent"));
@@ -254,14 +254,14 @@ mod integration_tests {
         let test_dir = setup_integration_test();
 
         // Initialize repository
-        run_crust_command(&test_dir, &["init"]).unwrap();
+        run_grit_command(&test_dir, &["init"]).unwrap();
 
         // Create files and commit
         fs::write(test_dir.path().join("original.txt"), "Original content").unwrap();
         fs::create_dir(test_dir.path().join("subdir")).unwrap();
         fs::write(test_dir.path().join("subdir").join("nested.txt"), "Nested content").unwrap();
 
-        let commit_result = run_crust_command(&test_dir, &["commit", "--message", "Initial commit"]);
+        let commit_result = run_grit_command(&test_dir, &["commit", "--message", "Initial commit"]);
         assert!(commit_result.is_ok());
         let commit_hash = commit_result.unwrap();
 
@@ -270,7 +270,7 @@ mod integration_tests {
         fs::remove_file(test_dir.path().join("subdir").join("nested.txt")).unwrap();
 
         // Checkout the commit
-        let checkout_result = run_crust_command(&test_dir, &["checkout", &commit_hash]);
+        let checkout_result = run_grit_command(&test_dir, &["checkout", &commit_hash]);
         assert!(checkout_result.is_ok());
 
         // Verify files were restored
@@ -283,8 +283,8 @@ mod integration_tests {
     fn test_git_compatibility() {
         let test_dir = setup_integration_test();
 
-        // Initialize crust repository
-        run_crust_command(&test_dir, &["init"]).unwrap();
+        // Initialize grit repository
+        run_grit_command(&test_dir, &["init"]).unwrap();
 
         // Create test files with various content types
         let test_files = vec![
@@ -297,8 +297,8 @@ mod integration_tests {
         for (filename, content) in test_files {
             fs::write(test_dir.path().join(filename), content).unwrap();
 
-            // Get crust hash
-            let crust_hash = run_crust_command(&test_dir, &["hash-object", filename]).unwrap();
+            // Get grit hash
+            let grit_hash = run_grit_command(&test_dir, &["hash-object", filename]).unwrap();
 
             // Get git hash for comparison
             let git_output = Command::new("git")
@@ -311,12 +311,12 @@ mod integration_tests {
             let git_hash = String::from_utf8_lossy(&git_output.stdout).trim().to_string();
 
             // Compare hashes
-            assert_eq!(crust_hash, git_hash,
-                "Hash mismatch for file {}: crust={}, git={}", filename, crust_hash, git_hash);
+            assert_eq!(grit_hash, git_hash,
+                "Hash mismatch for file {}: grit={}, git={}", filename, grit_hash, git_hash);
 
             // Verify we can read the object back
-            let cat_result = run_crust_command(&test_dir, &["cat-file", &crust_hash]);
-            assert!(cat_result.is_ok(), "Failed to read object {}", crust_hash);
+            let cat_result = run_grit_command(&test_dir, &["cat-file", &grit_hash]);
+            assert!(cat_result.is_ok(), "Failed to read object {}", grit_hash);
             let read_content = cat_result.unwrap();
 
             // Compare content
@@ -327,7 +327,7 @@ mod integration_tests {
         let binary_content = vec![0, 1, 255, 128];
         fs::write(test_dir.path().join("binary.dat"), &binary_content).unwrap();
 
-        let crust_hash = run_crust_command(&test_dir, &["hash-object", "binary.dat"]).unwrap();
+        let grit_hash = run_grit_command(&test_dir, &["hash-object", "binary.dat"]).unwrap();
 
         let git_output = Command::new("git")
             .args(&["hash-object", "binary.dat"])
@@ -338,11 +338,11 @@ mod integration_tests {
         assert!(git_output.status.success(), "git hash-object failed for binary file");
         let git_hash = String::from_utf8_lossy(&git_output.stdout).trim().to_string();
 
-        assert_eq!(crust_hash, git_hash,
-            "Hash mismatch for binary file: crust={}, git={}", crust_hash, git_hash);
+        assert_eq!(grit_hash, git_hash,
+            "Hash mismatch for binary file: grit={}, git={}", grit_hash, git_hash);
 
         // For binary content, compare by reading the object directly instead of through cat-file
-        let read_obj = crate::plumbing::objects::read_object(&crust_hash, test_dir.path()).unwrap();
+        let read_obj = crate::plumbing::objects::read_object(&grit_hash, test_dir.path()).unwrap();
         assert_eq!(read_obj.obj_type, crate::plumbing::objects::ObjectType::Blob);
         assert_eq!(read_obj.content, binary_content);
     }

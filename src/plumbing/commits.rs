@@ -1,4 +1,4 @@
-use crate::error::CrustError;
+use crate::error::GritError;
 use std::path::Path;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -22,17 +22,17 @@ use crate::plumbing::objects::{store_object, ObjectType};
 ///
 /// # Returns
 /// * `Ok(hash)` - The 40-character hex hash of the created commit object
-/// * `Err(CrustError)` - If commit creation or storage fails
-pub fn create_commit(tree_hash: &str, parent_hash: Option<&str>, message: &str, repo_root: &Path) -> Result<String, CrustError> {
+/// * `Err(GritError)` - If commit creation or storage fails
+pub fn create_commit(tree_hash: &str, parent_hash: Option<&str>, message: &str, repo_root: &Path) -> Result<String, GritError> {
     // Get current timestamp
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|_| CrustError::RepositoryError("System time before Unix epoch".to_string()))?;
+        .map_err(|_| GritError::RepositoryError("System time before Unix epoch".to_string()))?;
     let timestamp = now.as_secs();
     let timezone = "+0000"; // UTC
 
     // Default author/committer info (in a real implementation, this would come from config)
-    let author = format!("Crust User <crust@example.com> {} {}", timestamp, timezone);
+    let author = format!("Grit User <grit@example.com> {} {}", timestamp, timezone);
     let committer = author.clone();
 
     // Build commit content
@@ -63,35 +63,35 @@ pub fn create_commit(tree_hash: &str, parent_hash: Option<&str>, message: &str, 
 /// - Be within reasonable length limits
 ///
 /// This prevents path traversal attacks and ensures reference names are valid.
-fn validate_ref_name(ref_name: &str) -> Result<(), CrustError> {
+fn validate_ref_name(ref_name: &str) -> Result<(), GritError> {
     if ref_name.is_empty() {
-        return Err(CrustError::RepositoryError("Reference name cannot be empty".to_string()));
+        return Err(GritError::RepositoryError("Reference name cannot be empty".to_string()));
     }
 
     if ref_name.starts_with('/') || ref_name.ends_with('/') {
-        return Err(CrustError::RepositoryError("Reference name cannot start or end with '/'".to_string()));
+        return Err(GritError::RepositoryError("Reference name cannot start or end with '/'".to_string()));
     }
 
     if ref_name.contains("..") {
-        return Err(CrustError::RepositoryError("Reference name cannot contain '..'".to_string()));
+        return Err(GritError::RepositoryError("Reference name cannot contain '..'".to_string()));
     }
 
     if ref_name.contains("//") {
-        return Err(CrustError::RepositoryError("Reference name cannot contain consecutive '/'".to_string()));
+        return Err(GritError::RepositoryError("Reference name cannot contain consecutive '/'".to_string()));
     }
 
     if ref_name.ends_with('.') {
-        return Err(CrustError::RepositoryError("Reference name cannot end with '.'".to_string()));
+        return Err(GritError::RepositoryError("Reference name cannot end with '.'".to_string()));
     }
 
     // Check for control characters and spaces
     if ref_name.chars().any(|c| c.is_control() || c.is_whitespace()) {
-        return Err(CrustError::RepositoryError("Reference name cannot contain control characters or spaces".to_string()));
+        return Err(GritError::RepositoryError("Reference name cannot contain control characters or spaces".to_string()));
     }
 
     // Reasonable length limit
     if ref_name.len() > 1024 {
-        return Err(CrustError::RepositoryError("Reference name too long".to_string()));
+        return Err(GritError::RepositoryError("Reference name too long".to_string()));
     }
 
     Ok(())
@@ -112,14 +112,14 @@ fn validate_ref_name(ref_name: &str) -> Result<(), CrustError> {
 ///
 /// # Returns
 /// * `Ok(())` - If the reference was successfully updated
-/// * `Err(CrustError)` - If writing the reference fails
+/// * `Err(GritError)` - If writing the reference fails
 ///
 /// # Errors
 /// * `RepositoryError` - If the reference path is invalid or write fails
-pub fn update_ref(ref_name: &str, hash: &str, repo_root: &Path) -> Result<(), CrustError> {
+pub fn update_ref(ref_name: &str, hash: &str, repo_root: &Path) -> Result<(), GritError> {
     validate_ref_name(ref_name)?;
 
-    let ref_path = repo_root.join(".crust").join(ref_name);
+    let ref_path = repo_root.join(".grit").join(ref_name);
 
     // Ensure parent directories exist
     if let Some(parent) = ref_path.parent() {
@@ -141,9 +141,9 @@ pub fn update_ref(ref_name: &str, hash: &str, repo_root: &Path) -> Result<(), Cr
 /// # Returns
 /// * `Ok(Some(hash))` - The current commit hash if HEAD exists
 /// * `Ok(None)` - If HEAD doesn't exist (initial commit)
-/// * `Err(CrustError)` - If reading HEAD fails
-pub fn get_current_commit(repo_root: &Path) -> Result<Option<String>, CrustError> {
-    let head_path = repo_root.join(".crust").join("HEAD");
+/// * `Err(GritError)` - If reading HEAD fails
+pub fn get_current_commit(repo_root: &Path) -> Result<Option<String>, GritError> {
+    let head_path = repo_root.join(".grit").join("HEAD");
 
     if !head_path.exists() {
         return Ok(None);
@@ -154,7 +154,7 @@ pub fn get_current_commit(repo_root: &Path) -> Result<Option<String>, CrustError
 
     if let Some(ref_name) = head_content.strip_prefix("ref: ") {
         // Symbolic reference, read the actual ref
-        let ref_path = repo_root.join(".crust").join(ref_name);
+        let ref_path = repo_root.join(".grit").join(ref_name);
 
         if ref_path.exists() {
             let ref_content = fs::read_to_string(ref_path)?;
@@ -217,7 +217,7 @@ mod tests {
             update_ref(&ref_name, hash, test_dir.path())?;
 
             // Verify ref was created
-            let ref_path = test_dir.path().join(".crust").join(ref_name);
+            let ref_path = test_dir.path().join(".grit").join(ref_name);
             prop_assert!(ref_path.exists());
 
             let ref_content = fs::read_to_string(ref_path)?;
@@ -245,8 +245,8 @@ mod tests {
         let content = String::from_utf8_lossy(&commit_object.content);
         assert!(content.contains(&format!("tree {}", tree_hash)));
         assert!(!content.contains("parent"));
-        assert!(content.contains("author Crust User"));
-        assert!(content.contains("committer Crust User"));
+        assert!(content.contains("author Grit User"));
+        assert!(content.contains("committer Grit User"));
         assert!(content.contains("\n\nInitial commit\n"));
     }
 
@@ -280,7 +280,7 @@ mod tests {
         update_ref("HEAD", test_hash, test_dir.path()).unwrap();
 
         // Verify HEAD file content
-        let head_content = fs::read_to_string(test_dir.path().join(".crust").join("HEAD")).unwrap();
+        let head_content = fs::read_to_string(test_dir.path().join(".grit").join("HEAD")).unwrap();
         assert_eq!(head_content, format!("{}\n", test_hash));
     }
 
@@ -294,7 +294,7 @@ mod tests {
         update_ref("refs/heads/main", test_hash, test_dir.path()).unwrap();
 
         // Verify branch file content
-        let branch_content = fs::read_to_string(test_dir.path().join(".crust").join("refs").join("heads").join("main")).unwrap();
+        let branch_content = fs::read_to_string(test_dir.path().join(".grit").join("refs").join("heads").join("main")).unwrap();
         assert_eq!(branch_content, format!("{}\n", test_hash));
     }
 
@@ -308,10 +308,10 @@ mod tests {
         update_ref("refs/remotes/origin/main", test_hash, test_dir.path()).unwrap();
 
         // Verify directories were created and file content
-        assert!(test_dir.path().join(".crust").join("refs").join("remotes").exists());
-        assert!(test_dir.path().join(".crust").join("refs").join("remotes").join("origin").exists());
+        assert!(test_dir.path().join(".grit").join("refs").join("remotes").exists());
+        assert!(test_dir.path().join(".grit").join("refs").join("remotes").join("origin").exists());
 
-        let remote_content = fs::read_to_string(test_dir.path().join(".crust").join("refs").join("remotes").join("origin").join("main")).unwrap();
+        let remote_content = fs::read_to_string(test_dir.path().join(".grit").join("refs").join("remotes").join("origin").join("main")).unwrap();
         assert_eq!(remote_content, format!("{}\n", test_hash));
     }
 

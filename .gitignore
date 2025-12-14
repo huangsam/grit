@@ -1,4 +1,4 @@
 /target
-.crust/
+.grit/
 proptest-regressions/
 test_*/

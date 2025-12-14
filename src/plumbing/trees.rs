@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::fs;
-use crate::error::CrustError;
+use crate::error::GritError;
 use crate::plumbing::objects::{store_object, ObjectType};
 use rayon::prelude::*;
 
@@ -30,7 +30,7 @@ pub struct TreeEntry {
 /// secure snapshot of the entire directory tree.
 ///
 /// The process:
-/// 1. Recursively walk the directory (ignoring .crust)
+/// 1. Recursively walk the directory (ignoring .grit)
 /// 2. For files: store as blobs and collect entries
 /// 3. For directories: recursively create sub-trees
 /// 4. Sort entries lexicographically by name
@@ -42,25 +42,25 @@ pub struct TreeEntry {
 ///
 /// # Returns
 /// * `Ok(hash)` - The 40-character hex hash of the created tree object
-/// * `Err(CrustError)` - If traversal or storage fails
+/// * `Err(GritError)` - If traversal or storage fails
 ///
 /// # Validation
 /// The returned hash should exactly match `git write-tree` for the same directory.
-pub fn make_snapshot(path: &Path, repo_root: &Path) -> Result<String, CrustError> {
+pub fn make_snapshot(path: &Path, repo_root: &Path) -> Result<String, GritError> {
     // Step 1: Collect all directory entries
     let dir_entries: Vec<_> = fs::read_dir(path)?
         .filter_map(|entry| entry.ok())
         .filter(|entry| {
             let file_name = entry.file_name().to_string_lossy().to_string();
-            // Ignore .crust directory and build directories
-            file_name != ".crust" && file_name != "target" && file_name != ".git"
+            // Ignore .grit directory and build directories
+            file_name != ".grit" && file_name != "target" && file_name != ".git"
         })
         .collect();
 
     // Step 2: Process entries in parallel
-    let entries_result: Result<Vec<TreeEntry>, CrustError> = dir_entries
+    let entries_result: Result<Vec<TreeEntry>, GritError> = dir_entries
         .par_iter()
-        .map(|entry| -> Result<TreeEntry, CrustError> {
+        .map(|entry| -> Result<TreeEntry, GritError> {
             let entry_path = entry.path();
             let file_name = entry.file_name().to_string_lossy().to_string();
             let metadata = entry.metadata()?;
@@ -143,7 +143,7 @@ mod tests {
         fn test_make_snapshot_with_random_files(
             files in prop::collection::vec(
                 (prop::string::string_regex("[a-zA-Z0-9_.-]{1,50}").unwrap()
-                    .prop_filter("Exclude problematic filenames", |s| s != ".crust" && s != "target" && !s.starts_with('.')),
+                    .prop_filter("Exclude problematic filenames", |s| s != ".grit" && s != "target" && !s.starts_with('.')),
                  prop::collection::vec(any::<u8>(), 0..1000)),
                 1..10
             ).prop_map(|mut files| {
@@ -291,7 +291,7 @@ mod tests {
         let tree_object = read_object(&tree_hash, test_dir.path()).unwrap();
         assert_eq!(tree_object.obj_type, ObjectType::Tree);
 
-        // Should be empty (only contains .crust which is ignored)
+        // Should be empty (only contains .grit which is ignored)
         assert!(tree_object.content.is_empty());
     }
 }

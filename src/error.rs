@@ -1,10 +1,10 @@
 use std::fmt;
 
-/// Represents all possible errors that can occur in the Crust Git plumbing implementation.
+/// Represents all possible errors that can occur in the Grit Git plumbing implementation.
 /// This enum centralizes error handling to provide consistent error reporting and
 /// easy conversion from standard library errors.
 #[derive(Debug)]
-pub enum CrustError {
+pub enum GritError {
     /// An I/O error occurred during file operations (reading, writing, creating directories).
     /// This wraps std::io::Error for seamless error propagation.
     Io(std::io::Error),
@@ -26,32 +26,32 @@ pub enum CrustError {
     HexDecode(hex::FromHexError),
 }
 
-impl fmt::Display for CrustError {
+impl fmt::Display for GritError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CrustError::Io(err) => write!(f, "IO error: {}", err),
-            CrustError::ObjectNotFound(hash) => write!(f, "Object not found: {}", hash),
-            CrustError::CorruptObject(msg) => write!(f, "Corrupt object: {}", msg),
-            CrustError::RepositoryError(msg) => write!(f, "Repository error: {}", msg),
-            CrustError::HexDecode(err) => write!(f, "Hex decode error: {}", err),
+            GritError::Io(err) => write!(f, "IO error: {}", err),
+            GritError::ObjectNotFound(hash) => write!(f, "Object not found: {}", hash),
+            GritError::CorruptObject(msg) => write!(f, "Corrupt object: {}", msg),
+            GritError::RepositoryError(msg) => write!(f, "Repository error: {}", msg),
+            GritError::HexDecode(err) => write!(f, "Hex decode error: {}", err),
         }
     }
 }
 
-impl std::error::Error for CrustError {}
+impl std::error::Error for GritError {}
 
-/// Automatic conversion from std::io::Error to CrustError.
+/// Automatic conversion from std::io::Error to GritError.
 /// This allows using the '?' operator with I/O operations throughout the codebase.
-impl From<std::io::Error> for CrustError {
+impl From<std::io::Error> for GritError {
     fn from(err: std::io::Error) -> Self {
-        CrustError::Io(err)
+        GritError::Io(err)
     }
 }
 
-/// Automatic conversion from hex::FromHexError to CrustError.
+/// Automatic conversion from hex::FromHexError to GritError.
 /// This allows using the '?' operator with hex decoding operations.
-impl From<hex::FromHexError> for CrustError {
+impl From<hex::FromHexError> for GritError {
     fn from(err: hex::FromHexError) -> Self {
-        CrustError::HexDecode(err)
+        GritError::HexDecode(err)
     }
 }

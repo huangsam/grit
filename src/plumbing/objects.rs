@@ -1,5 +1,5 @@
 use std::path::Path;
-use crate::error::CrustError;
+use crate::error::GritError;
 use sha1::{Digest, Sha1};
 use flate2::write::ZlibEncoder;
 use flate2::read::ZlibDecoder;
@@ -46,7 +46,7 @@ pub struct Object {
 /// 1. Constructing a Git header with object type and size
 /// 2. Computing SHA-1 hash of header + content
 /// 3. Compressing the data with zlib
-/// 4. Storing in .crust/objects/xx/yyyy... where xx are first 2 hex chars of hash
+/// 4. Storing in .grit/objects/xx/yyyy... where xx are first 2 hex chars of hash
 ///
 /// # Arguments
 /// * `content` - The raw bytes to store in the object
@@ -55,11 +55,11 @@ pub struct Object {
 ///
 /// # Returns
 /// * `Ok(hash)` - The 40-character hex SHA-1 hash of the stored object
-/// * `Err(CrustError)` - If storage fails due to I/O errors or other issues
+/// * `Err(GritError)` - If storage fails due to I/O errors or other issues
 ///
 /// # Validation
 /// The returned hash should match `git hash-object -w --stdin` for the same input.
-pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> Result<String, CrustError> {
+pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> Result<String, GritError> {
     // Check hash cache first - compute content hash to see if we've stored this before
     let obj_type_u8 = obj_type.clone() as u8;
     let content_hash = format!("{}_{}", obj_type_u8, hex::encode(Sha1::digest(content)));
@@ -67,7 +67,7 @@ pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> R
     if let Some(cached_hash) = cache::GLOBAL_CACHE.hash_cache.get(&content_hash) {
         // Verify the object still exists on disk
         let (prefix, suffix) = cached_hash.split_at(2);
-        let object_path = repo_root.join(".crust").join("objects").join(prefix).join(suffix);
+        let object_path = repo_root.join(".grit").join("objects").join(prefix).join(suffix);
         if object_path.exists() {
             return Ok(cached_hash);
         }
@@ -101,7 +101,7 @@ pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> R
 
     // Step 4: Storage Path
     let (prefix, suffix) = hash_hex.split_at(2);
-    let object_dir = repo_root.join(".crust").join("objects").join(prefix);
+    let object_dir = repo_root.join(".grit").join("objects").join(prefix);
     fs::create_dir_all(&object_dir)?;
 
     let object_path = object_dir.join(suffix);
@@ -128,12 +128,12 @@ pub fn store_object(content: &[u8], obj_type: ObjectType, repo_root: &Path) -> R
 ///
 /// # Returns
 /// * `Ok(Object)` - The retrieved object with its type and content
-/// * `Err(CrustError)` - If the object doesn't exist or is corrupted
+/// * `Err(GritError)` - If the object doesn't exist or is corrupted
 ///
 /// # Errors
 /// * `ObjectNotFound` - If no object with the given hash exists
 /// * `CorruptObject` - If the stored data is malformed or decompression fails
-pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, CrustError> {
+pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, GritError> {
     // Check cache first
     if let Some(cached_object) = cache::GLOBAL_CACHE.object_cache.get(hash) {
         return Ok(cached_object);
@@ -141,10 +141,10 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, CrustError> {
 
     // Step 1: Retrieval
     let (prefix, suffix) = hash.split_at(2);
-    let object_path = repo_root.join(".crust").join("objects").join(prefix).join(suffix);
+    let object_path = repo_root.join(".grit").join("objects").join(prefix).join(suffix);
 
     if !object_path.exists() {
-        return Err(CrustError::ObjectNotFound(hash.to_string()));
+        return Err(GritError::ObjectNotFound(hash.to_string()));
     }
 
     let file = fs::File::open(object_path)?;
@@ -159,24 +159,24 @@ pub fn read_object(hash: &str, repo_root: &Path) -> Result<Object, CrustError> {
 
     // Step 3: Header Parsing
     let null_pos = decompressed_data.iter().position(|&b| b == 0)
-        .ok_or_else(|| CrustError::CorruptObject("No null byte found in object data".to_string()))?;
+        .ok_or_else(|| GritError::CorruptObject("No null byte found in object data".to_string()))?;
 
     let header = &decompressed_data[..null_pos];
     let content = &decompressed_data[null_pos + 1..];
 
     // Parse header: "type size"
     let header_str = std::str::from_utf8(header)
-        .map_err(|_| CrustError::CorruptObject("Invalid UTF-8 in object header".to_string()))?;
+        .map_err(|_| GritError::CorruptObject("Invalid UTF-8 in object header".to_string()))?;
 
     let mut parts = header_str.split_whitespace();
     let type_str = parts.next()
-        .ok_or_else(|| CrustError::CorruptObject("Missing type in object header".to_string()))?;
+        .ok_or_else(|| GritError::CorruptObject("Missing type in object header".to_string()))?;
 
     let obj_type = match type_str {
         "blob" => ObjectType::Blob,
         "tree" => ObjectType::Tree,
         "commit" => ObjectType::Commit,
-        _ => return Err(CrustError::CorruptObject(format!("Unknown object type: {}", type_str))),
+        _ => return Err(GritError::CorruptObject(format!("Unknown object type: {}", type_str))),
     };
 
     // Step 4: Output
@@ -256,7 +256,7 @@ mod tests {
         let result = read_object("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", test_dir.path());
         assert!(result.is_err());
 
-        if let Err(CrustError::ObjectNotFound(hash)) = result {
+        if let Err(GritError::ObjectNotFound(hash)) = result {
             assert_eq!(hash, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         } else {
             panic!("Expected ObjectNotFound error");
@@ -299,7 +299,7 @@ mod tests {
         fn test_store_read_tree_roundtrip(
             entries in prop::collection::vec(
                 (prop::string::string_regex("[a-zA-Z0-9_.-]{1,10}").unwrap()
-                    .prop_filter("Exclude problematic filenames", |s| s != "." && s != ".." && !s.contains('/') && !s.starts_with('.') && s != ".crust" && s != "target"),
+                    .prop_filter("Exclude problematic filenames", |s| s != "." && s != ".." && !s.contains('/') && !s.starts_with('.') && s != ".grit" && s != "target"),
                  prop::collection::vec(any::<u8>(), 0..100)),
                 1..5
             ).prop_map(|mut entries| {
@@ -420,7 +420,7 @@ mod tests {
         let hash = store_object(content, ObjectType::Blob, test_dir.path()).unwrap();
 
         // Manually corrupt the object file
-        let object_path = test_dir.path().join(".crust").join("objects")
+        let object_path = test_dir.path().join(".grit").join("objects")
             .join(&hash[..2]).join(&hash[2..]);
 
         let mut corrupted_content = std::fs::read(&object_path).unwrap();
@@ -438,7 +438,7 @@ mod tests {
 
         // Should be an Io error due to corrupted compression
         match result {
-            Err(crate::error::CrustError::Io(_)) => {},
+            Err(crate::error::GritError::Io(_)) => {},
             Err(e) => panic!("Expected Io error, got: {:?}", e),
             _ => panic!("Expected Io error"),
         }

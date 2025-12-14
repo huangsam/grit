@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::Path;
-use crate::error::CrustError;
+use crate::error::GritError;
 
-/// Initializes a new Crust repository by creating the standard .crust directory structure.
-/// This function sets up the basic directories and files needed for a Crust repository
+/// Initializes a new Grit repository by creating the standard .grit directory structure.
+/// This function sets up the basic directories and files needed for a Grit repository
 /// to function, including objects storage, refs, and HEAD pointer.
 ///
 /// # Arguments
@@ -11,29 +11,29 @@ use crate::error::CrustError;
 ///
 /// # Returns
 /// - `Ok(())` if the repository was successfully initialized
-/// - `Err(CrustError)` if directory creation fails or the repository already exists
+/// - `Err(GritError)` if directory creation fails or the repository already exists
 ///
 /// # Errors
 /// This function will return an error if:
-/// - The .crust directory already exists
+/// - The .grit directory already exists
 /// - File system permissions prevent directory creation
 /// - Any I/O operation fails during setup
-pub fn initialize_repo(repo_root: &Path) -> Result<(), CrustError> {
-    let crust_dir = repo_root.join(".crust");
+pub fn initialize_repo(repo_root: &Path) -> Result<(), GritError> {
+    let grit_dir = repo_root.join(".grit");
 
     // Check if repository already exists
-    if crust_dir.exists() {
-        return Err(CrustError::RepositoryError("Crust repository already exists".to_string()));
+    if grit_dir.exists() {
+        return Err(GritError::RepositoryError("Grit repository already exists".to_string()));
     }
 
     // Create the basic directory structure
-    fs::create_dir(&crust_dir)?;
-    fs::create_dir(crust_dir.join("objects"))?;
-    fs::create_dir(crust_dir.join("refs"))?;
-    fs::create_dir(crust_dir.join("refs").join("heads"))?;
+    fs::create_dir(&grit_dir)?;
+    fs::create_dir(grit_dir.join("objects"))?;
+    fs::create_dir(grit_dir.join("refs"))?;
+    fs::create_dir(grit_dir.join("refs").join("heads"))?;
 
     // Create HEAD file pointing to refs/heads/main
-    fs::write(crust_dir.join("HEAD"), "ref: refs/heads/main\n")?;
+    fs::write(grit_dir.join("HEAD"), "ref: refs/heads/main\n")?;
 
     Ok(())
 }
@@ -57,13 +57,13 @@ mod tests {
         assert!(result.is_ok());
 
         // Check that directories were created
-        assert!(test_dir.path().join(".crust").exists());
-        assert!(test_dir.path().join(".crust").join("objects").exists());
-        assert!(test_dir.path().join(".crust").join("refs").exists());
-        assert!(test_dir.path().join(".crust").join("refs").join("heads").exists());
+        assert!(test_dir.path().join(".grit").exists());
+        assert!(test_dir.path().join(".grit").join("objects").exists());
+        assert!(test_dir.path().join(".grit").join("refs").exists());
+        assert!(test_dir.path().join(".grit").join("refs").join("heads").exists());
 
         // Check HEAD file content
-        let head_content = fs::read_to_string(test_dir.path().join(".crust").join("HEAD")).unwrap();
+        let head_content = fs::read_to_string(test_dir.path().join(".grit").join("HEAD")).unwrap();
         assert_eq!(head_content, "ref: refs/heads/main\n");
     }
 
@@ -79,8 +79,8 @@ mod tests {
         let result2 = initialize_repo(test_dir.path());
         assert!(result2.is_err());
 
-        if let Err(CrustError::RepositoryError(msg)) = result2 {
-            assert_eq!(msg, "Crust repository already exists");
+        if let Err(GritError::RepositoryError(msg)) = result2 {
+            assert_eq!(msg, "Grit repository already exists");
         } else {
             panic!("Expected RepositoryError");
         }

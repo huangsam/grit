@@ -1,4 +1,4 @@
-use crate::error::CrustError;
+use crate::error::GritError;
 use crate::plumbing::objects::{read_object, ObjectType};
 use crate::cache;
 use sha1::{Digest, Sha1};
@@ -19,13 +19,13 @@ use std::path::Path;
 ///
 /// # Returns
 /// * `Ok(())` - If the snapshot was successfully restored
-/// * `Err(CrustError)` - If reading objects or writing files fails
+/// * `Err(GritError)` - If reading objects or writing files fails
 ///
 /// # Errors
 /// * `ObjectNotFound` - If the specified hash doesn't exist
 /// * `CorruptObject` - If the object data is malformed
 /// * `Io` - If file system operations fail
-pub fn restore_snapshot(hash: &str, repo_root: &Path) -> Result<(), CrustError> {
+pub fn restore_snapshot(hash: &str, repo_root: &Path) -> Result<(), GritError> {
     // Read the object
     let object = read_object(hash, repo_root)?;
 
@@ -37,7 +37,7 @@ pub fn restore_snapshot(hash: &str, repo_root: &Path) -> Result<(), CrustError> 
         }
         ObjectType::Tree => hash.to_string(),
         ObjectType::Blob => {
-            return Err(CrustError::RepositoryError(
+            return Err(GritError::RepositoryError(
                 "Cannot checkout a blob object".to_string()
             ));
         }
@@ -48,21 +48,21 @@ pub fn restore_snapshot(hash: &str, repo_root: &Path) -> Result<(), CrustError> 
 }
 
 /// Extracts the tree hash from a commit object's content
-fn extract_tree_hash_from_commit(commit_content: &str) -> Result<String, CrustError> {
+fn extract_tree_hash_from_commit(commit_content: &str) -> Result<String, GritError> {
     for line in commit_content.lines() {
         if let Some(tree_hash) = line.strip_prefix("tree ") {
             return Ok(tree_hash.to_string());
         }
     }
-    Err(CrustError::CorruptObject("Commit missing tree reference".to_string()))
+    Err(GritError::CorruptObject("Commit missing tree reference".to_string()))
 }
 
 /// Recursively restores a tree object to the working directory
-fn restore_tree(tree_hash: &str, repo_root: &Path, current_path: &Path) -> Result<(), CrustError> {
+fn restore_tree(tree_hash: &str, repo_root: &Path, current_path: &Path) -> Result<(), GritError> {
     let tree_object = read_object(tree_hash, repo_root)?;
 
     if tree_object.obj_type != ObjectType::Tree {
-        return Err(CrustError::CorruptObject("Expected tree object".to_string()));
+        return Err(GritError::CorruptObject("Expected tree object".to_string()));
     }
 
     // Parse tree entries
@@ -81,7 +81,7 @@ fn restore_tree(tree_hash: &str, repo_root: &Path, current_path: &Path) -> Resul
             let blob_object = read_object(&hex::encode(entry.hash), repo_root)?;
 
             if blob_object.obj_type != ObjectType::Blob {
-                return Err(CrustError::CorruptObject("Tree entry points to non-blob".to_string()));
+                return Err(GritError::CorruptObject("Tree entry points to non-blob".to_string()));
             }
 
             // Write file content
@@ -114,7 +114,7 @@ pub struct TreeEntry {
 }
 
 /// Parses tree entries from raw tree content
-pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, CrustError> {
+pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, GritError> {
     // Compute content hash for caching
     let content_hash = hex::encode(Sha1::digest(content));
 
@@ -129,7 +129,7 @@ pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, CrustError> 
     while pos < content.len() {
         // Find null byte separating mode/name from hash
         let null_pos = content[pos..].iter().position(|&b| b == 0)
-            .ok_or_else(|| CrustError::CorruptObject("Invalid tree entry format".to_string()))?;
+            .ok_or_else(|| GritError::CorruptObject("Invalid tree entry format".to_string()))?;
 
         let header = &content[pos..pos + null_pos];
         pos += null_pos + 1;
@@ -137,14 +137,14 @@ pub fn parse_tree_entries(content: &[u8]) -> Result<Vec<TreeEntry>, CrustError> 
         // Parse mode and name
         let header_str = String::from_utf8_lossy(header);
         let space_pos = header_str.find(' ')
-            .ok_or_else(|| CrustError::CorruptObject("Invalid tree entry header".to_string()))?;
+            .ok_or_else(|| GritError::CorruptObject("Invalid tree entry header".to_string()))?;
 
         let mode = header_str[..space_pos].to_string();
         let name = header_str[space_pos + 1..].to_string();
 
         // Read 20-byte hash
         if pos + 20 > content.len() {
-            return Err(CrustError::CorruptObject("Tree entry truncated".to_string()));
+            return Err(GritError::CorruptObject("Tree entry truncated".to_string()));
         }
 
         let mut hash = [0u8; 20];
@@ -209,7 +209,7 @@ mod tests {
             entries in prop::collection::vec(
                 (prop::string::string_regex(r"100644|100755|40000").unwrap(), // Valid modes
                  prop::string::string_regex("[a-zA-Z0-9_.-]{1,50}").unwrap()
-                    .prop_filter("Exclude problematic filenames", |s| s != ".crust" && s != "target" && !s.starts_with('.')),
+                    .prop_filter("Exclude problematic filenames", |s| s != ".grit" && s != "target" && !s.starts_with('.')),
                  prop::array::uniform20(any::<u8>())), // 20-byte hash
                 1..5
             )

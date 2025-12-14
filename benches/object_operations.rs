@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use crust::plumbing::objects::{store_object, read_object, ObjectType};
-use crust::repository::initialize_repo;
+use grit::plumbing::objects::{store_object, read_object, ObjectType};
+use grit::repository::initialize_repo;
 use tempfile::TempDir;
 
 fn setup_test_repo() -> TempDir {
