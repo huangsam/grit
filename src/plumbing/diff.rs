@@ -34,8 +34,8 @@ pub fn compare_trees(
     let tree_a = objects::read_tree(repo, tree_hash_a)?;
     let tree_b = objects::read_tree(repo, tree_hash_b)?;
 
-    let mut entries_a: HashMap<&str, &TreeEntry> = tree_a.entries.iter().map(|e| (e.name.as_str(), e)).collect();
-    let mut entries_b: HashMap<&str, &TreeEntry> = tree_b.entries.iter().map(|e| (e.name.as_str(), e)).collect();
+    let entries_a: HashMap<&str, &TreeEntry> = tree_a.entries.iter().map(|e| (e.name.as_str(), e)).collect();
+    let entries_b: HashMap<&str, &TreeEntry> = tree_b.entries.iter().map(|e| (e.name.as_str(), e)).collect();
 
     let mut diffs = Vec::new();
 

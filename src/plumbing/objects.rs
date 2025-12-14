@@ -261,7 +261,7 @@ pub fn read_commit(repo: &crate::repository::Repository, hash: &str) -> Result<C
 }
 
 fn parse_commit(content: &str) -> Result<Commit, GritError> {
-    let mut lines = content.lines();
+    let lines = content.lines();
     let mut tree_hash = None;
     let mut parent_hashes = Vec::new();
     let mut author = None;
