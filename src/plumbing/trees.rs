@@ -2,6 +2,7 @@ use std::path::Path;
 use std::fs;
 use crate::error::CrustError;
 use crate::plumbing::objects::{store_object, ObjectType};
+use rayon::prelude::*;
 
 /// Represents a single entry in a Git tree object.
 /// Tree entries contain the metadata needed to reconstruct a directory structure,
@@ -46,48 +47,60 @@ pub struct TreeEntry {
 /// # Validation
 /// The returned hash should exactly match `git write-tree` for the same directory.
 pub fn make_snapshot(path: &Path, repo_root: &Path) -> Result<String, CrustError> {
-    let mut entries = Vec::new();
+    // Step 1: Collect all directory entries
+    let dir_entries: Vec<_> = fs::read_dir(path)?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            // Ignore .crust directory and build directories
+            file_name != ".crust" && file_name != "target" && file_name != ".git"
+        })
+        .collect();
 
-    // Step 1: Directory Traversal
-    let dir_entries = fs::read_dir(path)?;
+    // Step 2: Process entries in parallel
+    let entries_result: Result<Vec<TreeEntry>, CrustError> = dir_entries
+        .par_iter()
+        .map(|entry| -> Result<TreeEntry, CrustError> {
+            let entry_path = entry.path();
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            let metadata = entry.metadata()?;
 
-    for entry in dir_entries {
-        let entry = entry?;
-        let entry_path = entry.path();
-        let file_name = entry.file_name().to_string_lossy().to_string();
+            if metadata.is_file() {
+                // For files: store as blob
+                let content = fs::read(&entry_path)?;
+                let hash = store_object(&content, ObjectType::Blob, repo_root)?;
+                let hash_bytes = hex::decode(hash)?;
 
-        // Ignore .crust directory and build directories
-        if file_name == ".crust" || file_name == "target" || file_name == ".git" {
-            continue;
-        }
+                Ok(TreeEntry {
+                    mode: "100644".to_string(), // Regular file mode
+                    name: file_name,
+                    hash: hash_bytes.try_into().unwrap(), // Convert Vec<u8> to [u8; 20]
+                })
+            } else if metadata.is_dir() {
+                // For directories: recursively create tree
+                let hash = make_snapshot(&entry_path, repo_root)?;
+                let hash_bytes = hex::decode(hash)?;
 
-        let metadata = entry.metadata()?;
+                Ok(TreeEntry {
+                    mode: "40000".to_string(), // Directory mode
+                    name: file_name,
+                    hash: hash_bytes.try_into().unwrap(),
+                })
+            } else {
+                // Ignore other types (symlinks, etc.) for now
+                // Return a dummy entry that will be filtered out
+                Ok(TreeEntry {
+                    mode: "".to_string(),
+                    name: "".to_string(),
+                    hash: [0u8; 20],
+                })
+            }
+        })
+        .collect();
 
-        // Step 2: Entry Handling
-        if metadata.is_file() {
-            // For files: store as blob
-            let content = fs::read(&entry_path)?;
-            let hash = store_object(&content, ObjectType::Blob, repo_root)?;
-            let hash_bytes = hex::decode(hash)?;
-
-            entries.push(TreeEntry {
-                mode: "100644".to_string(), // Regular file mode
-                name: file_name,
-                hash: hash_bytes.try_into().unwrap(), // Convert Vec<u8> to [u8; 20]
-            });
-        } else if metadata.is_dir() {
-            // For directories: recursively create tree
-            let hash = make_snapshot(&entry_path, repo_root)?;
-            let hash_bytes = hex::decode(hash)?;
-
-            entries.push(TreeEntry {
-                mode: "40000".to_string(), // Directory mode
-                name: file_name,
-                hash: hash_bytes.try_into().unwrap(),
-            });
-        }
-        // Ignore other types (symlinks, etc.) for now
-    }
+    let mut entries = entries_result?;
+    // Filter out dummy entries (for ignored file types)
+    entries.retain(|entry| !entry.mode.is_empty());
 
     // Step 4: Sorting
     entries.sort_by(|a, b| a.name.cmp(&b.name));
@@ -133,7 +146,16 @@ mod tests {
                     .prop_filter("Exclude problematic filenames", |s| s != ".crust" && s != "target" && !s.starts_with('.')),
                  prop::collection::vec(any::<u8>(), 0..1000)),
                 1..10
-            )
+            ).prop_map(|mut files| {
+                // Ensure unique filenames by appending index to duplicates
+                let mut seen = std::collections::HashSet::new();
+                for (i, (filename, _)) in files.iter_mut().enumerate() {
+                    if !seen.insert(filename.clone()) {
+                        *filename = format!("{}_{}", filename, i);
+                    }
+                }
+                files
+            })
         ) {
             let test_dir = setup_test_repo();
 
