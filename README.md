@@ -1,5 +1,7 @@
 # Grit
 
+[![License](https://img.shields.io/github/license/huangsam/grit)](https://github.com/huangsam/grit/blob/main/LICENSE)
+
 A high-performance Git implementation in Rust with both plumbing and porcelain commands.
 
 ## Features
