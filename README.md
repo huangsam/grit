@@ -6,10 +6,9 @@ A high-performance Git implementation in Rust with both plumbing and porcelain c
 
 ## Features
 
-- **Hybrid Architecture**: Implements both low-level plumbing operations and user-friendly porcelain commands
+- **Hybrid Architecture**: Implements plumbing operations and porcelain commands
 - **High Performance**: Aggressive caching and parallel processing for 2-3x faster operations
 - **Git Compatible**: Full compatibility with standard Git repositories and formats
-- **Memory Efficient**: LRU caching prevents memory bloat during large operations
 - **Ignore Support**: Respects `.gritignore` files for excluding files from staging and status
 
 ## Why Grit?
