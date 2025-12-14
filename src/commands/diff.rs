@@ -1,6 +1,53 @@
-//! Implementation of the `grit diff` porcelain command
+//! # Git Diff Command Implementation
 //!
-//! This module implements the `grit diff` command for comparing commits.
+//! This module implements the `grit diff` porcelain command, which shows
+//! differences between commits, the working directory, or the staging area.
+//! It provides human-readable output of file changes using unified diff format.
+//!
+//! ## Overview
+//!
+//! The diff command can compare:
+//! - Two commits: `grit diff <commit1> <commit2>`
+//! - Working directory vs index: `grit diff`
+//! - Index vs HEAD: `grit diff --staged`
+//! - Specific files or directories
+//!
+//! ## Command Usage
+//!
+//! ```bash
+//! grit diff                    # Working directory vs index
+//! grit diff --staged          # Index vs HEAD
+//! grit diff HEAD~1 HEAD       # Between two commits
+//! grit diff HEAD -- file.txt  # Specific file
+//! ```
+//!
+//! ## Key Components
+//!
+//! - `diff()`: Main command handler with option parsing
+//! - Tree comparison and file delta calculation
+//! - Unified diff output formatting
+//! - Binary file detection and handling
+//!
+//! ## Features
+//!
+//! - Unified diff format with context lines
+//! - Color output for additions/deletions
+//! - Support for renamed and moved files
+//! - Binary file detection
+//! - Performance optimizations for large diffs
+//!
+//! ## Output Format
+//!
+//! Uses standard unified diff format:
+//! ```diff
+//! --- a/file.txt
+//! +++ b/file.txt
+//! @@ -1,3 +1,3 @@
+//!  old line
+//! -removed line
+//! +added line
+//!  unchanged line
+//! ```
 
 use std::path::Path;
 

@@ -1,7 +1,46 @@
-//! Implementation of the `grit status` porcelain command
+//! # Git Status Command Implementation
 //!
-//! This module shows the status of the working directory and staging area,
-//! including staged changes, unstaged changes, and untracked files.
+//! This module implements the `grit status` porcelain command, which shows the
+//! current state of the working directory, staging area, and repository. It
+//! provides a comprehensive view of changes, untracked files, and repository status.
+//!
+//! ## Overview
+//!
+//! The status command displays:
+//! - Changes staged for commit (index vs HEAD)
+//! - Changes not staged for commit (working directory vs index)
+//! - Untracked files not ignored
+//! - Branch and ahead/behind information
+//! - Files ignored by `.gritignore`
+//!
+//! ## Command Usage
+//!
+//! ```bash
+//! grit status
+//! ```
+//!
+//! ## Key Components
+//!
+//! - `status()`: Main function orchestrating status checks
+//! - File state comparison (modified, added, deleted, renamed)
+//! - Index vs HEAD comparison
+//! - Working directory vs index comparison
+//! - Ignore pattern filtering
+//!
+//! ## Features
+//!
+//! - Color-coded output for different file states
+//! - Short and long format options
+//! - Efficient scanning of large directories
+//! - Proper handling of renamed and moved files
+//! - Integration with ignore patterns
+//!
+//! ## Performance
+//!
+//! - Lazy loading of file contents
+//! - Parallel directory traversal
+//! - Caching of expensive operations
+//! - Minimal memory usage for large repos
 
 use crate::error::GritError;
 use crate::plumbing::checkout::parse_tree_entries;

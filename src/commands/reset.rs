@@ -1,6 +1,44 @@
-//! Implementation of the `grit reset` porcelain command
+//! # Git Reset Command Implementation
 //!
-//! This module handles resetting the current HEAD to a specified state.
+//! This module implements the `grit reset` porcelain command, which moves the
+//! current HEAD to a specified commit and optionally updates the index and
+//! working directory. It provides flexible ways to undo commits or staging.
+//!
+//! ## Overview
+//!
+//! The reset command supports three modes:
+//! - `--soft`: Move HEAD only (keep index and working directory)
+//! - `--mixed` (default): Move HEAD and index (keep working directory)
+//! - `--hard`: Move HEAD, index, and working directory
+//!
+//! ## Command Usage
+//!
+//! ```bash
+//! grit reset --soft HEAD~1    # Undo last commit, keep changes staged
+//! grit reset HEAD~1           # Undo last commit, keep changes unstaged
+//! grit reset --hard HEAD~1    # Undo last commit, discard all changes
+//! ```
+//!
+//! ## Key Components
+//!
+//! - `reset()`: Main function handling reset logic
+//! - Mode-specific reset implementations
+//! - HEAD and index updating
+//! - Working directory restoration
+//! - Safety checks and confirmations
+//!
+//! ## Features
+//!
+//! - Support for all three reset modes
+//! - Commit hash resolution (HEAD~n, branch names)
+//! - Preservation of uncommitted changes in soft/mixed modes
+//! - Integration with checkout for working directory updates
+//!
+//! ## Safety
+//!
+//! - Validation of target commits
+//! - Warning for destructive operations
+//! - Backup recommendations for hard resets
 
 use crate::error::GritError;
 use crate::plumbing::commits::update_ref;

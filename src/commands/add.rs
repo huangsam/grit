@@ -1,6 +1,46 @@
-//! Implementation of the `grit add` porcelain command
+//! # Git Add (Stage Files) Command Implementation
 //!
-//! This module handles staging files for the next commit by updating the Git index.
+//! This module implements the `grit add` porcelain command, which stages files
+//! for the next commit by updating the Git index. It handles file selection,
+//! content hashing, and index management.
+//!
+//! ## Overview
+//!
+//! The add command allows users to stage changes for commit. Key features:
+//! - Support for individual files, directories, or glob patterns
+//! - Automatic content hashing and blob creation
+//! - Index updating with file metadata
+//! - Respect for `.gritignore` patterns
+//! - Recursive directory handling
+//!
+//! ## Command Usage
+//!
+//! ```bash
+//! grit add <files...>
+//! grit add .  # Add all files
+//! grit add *.rs  # Add Rust files
+//! ```
+//!
+//! ## Key Components
+//!
+//! - `add_files()`: Main function handling file staging
+//! - Pattern matching and glob expansion
+//! - Ignore pattern filtering
+//! - Index entry creation and updating
+//! - Progress reporting for large operations
+//!
+//! ## Features
+//!
+//! - Efficient handling of large file sets
+//! - Proper handling of file permissions and timestamps
+//! - Conflict detection and resolution
+//! - Integration with ignore patterns
+//!
+//! ## Performance
+//!
+//! - Parallel processing for multiple files
+//! - Buffered I/O for large files
+//! - Incremental updates to avoid full index rewrites
 
 use crate::error::GritError;
 use crate::plumbing::ignores::{load_ignore_patterns, is_ignored};
