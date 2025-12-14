@@ -25,3 +25,7 @@ harness = false
 [[bench]]
 name = "tree_operations"
 harness = false
+
+[[bench]]
+name = "comparison"
+harness = false
