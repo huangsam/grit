@@ -139,6 +139,13 @@ pub mod plumbing {
     /// Implements efficient caching and compression for optimal performance.
     pub mod objects;
 
+    /// Git index (staging area) implementation
+    ///
+    /// Implements Git's index file format for tracking staged changes.
+    /// Provides functions for reading, writing, and manipulating the index
+    /// to support porcelain commands like add, reset, and status.
+    pub mod index;
+
     /// Tree object creation and manipulation
     ///
     /// Provides functionality for creating tree objects from directory structures,

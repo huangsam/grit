@@ -24,6 +24,10 @@ pub enum GritError {
     /// Error occurred while decoding hex strings.
     /// This wraps hex::FromHexError for hash decoding operations.
     HexDecode(hex::FromHexError),
+
+    /// Error occurred while working with system time.
+    /// This wraps std::time::SystemTimeError for timestamp operations.
+    TimeError(std::time::SystemTimeError),
 }
 
 impl fmt::Display for GritError {
@@ -34,6 +38,7 @@ impl fmt::Display for GritError {
             GritError::CorruptObject(msg) => write!(f, "Corrupt object: {}", msg),
             GritError::RepositoryError(msg) => write!(f, "Repository error: {}", msg),
             GritError::HexDecode(err) => write!(f, "Hex decode error: {}", err),
+            GritError::TimeError(err) => write!(f, "Time error: {}", err),
         }
     }
 }
@@ -53,5 +58,13 @@ impl From<std::io::Error> for GritError {
 impl From<hex::FromHexError> for GritError {
     fn from(err: hex::FromHexError) -> Self {
         GritError::HexDecode(err)
+    }
+}
+
+/// Automatic conversion from std::time::SystemTimeError to GritError.
+/// This allows using the '?' operator with time operations.
+impl From<std::time::SystemTimeError> for GritError {
+    fn from(err: std::time::SystemTimeError) -> Self {
+        GritError::TimeError(err)
     }
 }
