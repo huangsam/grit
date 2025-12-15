@@ -3,3 +3,4 @@
 brainstorm/
 proptest-regressions/
 test_*/
+.DS_Store
