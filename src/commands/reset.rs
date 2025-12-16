@@ -109,10 +109,7 @@ pub fn reset(commit_hash: &str, mode: ResetMode, repo_root: &Path) -> Result<(),
     // 1. Validate commit exists
     let object = read_object(commit_hash, repo_root)?;
     if object.obj_type != ObjectType::Commit {
-        return Err(GritError::RepositoryError(format!(
-            "{} is not a commit",
-            commit_hash
-        )));
+        return Err(GritError::not_a_commit(commit_hash));
     }
 
     // Read old index for hard reset cleanup
@@ -207,10 +204,7 @@ pub fn reset_paths(commit_hash: &str, paths: &[String], repo_root: &Path) -> Res
     // 1. Get tree from commit
     let object = read_object(commit_hash, repo_root)?;
     if object.obj_type != ObjectType::Commit {
-        return Err(GritError::RepositoryError(format!(
-            "{} is not a commit",
-            commit_hash
-        )));
+        return Err(GritError::not_a_commit(commit_hash));
     }
     let commit_content = String::from_utf8_lossy(&object.content);
     let tree_hash = extract_tree_hash(&commit_content)?;

@@ -66,9 +66,7 @@ pub fn restore_snapshot(hash: &str, repo_root: &Path) -> Result<(), GritError> {
         }
         ObjectType::Tree => hash.to_string(),
         ObjectType::Blob => {
-            return Err(GritError::RepositoryError(
-                "Cannot checkout a blob object".to_string(),
-            ));
+            return Err(GritError::repo("Cannot checkout a blob object"));
         }
     };
 

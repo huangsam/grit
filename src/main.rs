@@ -187,14 +187,11 @@ fn main() -> Result<(), GritError> {
         } => {
             if !paths.is_empty() {
                 if hard || soft {
-                    return Err(GritError::RepositoryError(
-                        "Cannot use --hard or --soft with paths".to_string(),
-                    ));
+                    return Err(GritError::repo("Cannot use --hard or --soft with paths"));
                 }
 
                 let commit_hash = if commit == "HEAD" {
-                    get_current_commit(Path::new("."))?
-                        .ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
+                    get_current_commit(Path::new("."))?.ok_or(GritError::no_commits())?
                 } else {
                     commit
                 };
@@ -210,8 +207,7 @@ fn main() -> Result<(), GritError> {
                 };
 
                 let commit_hash = if commit == "HEAD" {
-                    get_current_commit(Path::new("."))?
-                        .ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
+                    get_current_commit(Path::new("."))?.ok_or(GritError::no_commits())?
                 } else {
                     commit
                 };
@@ -266,7 +262,7 @@ mod integration_tests {
 
         if output.status.success() {
             // For cat-file command, don't trim to preserve exact content
-            if args.get(0) == Some(&"cat-file") {
+            if args.first().copied() == Some("cat-file") {
                 Ok(String::from_utf8_lossy(&output.stdout).to_string())
             } else {
                 Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -519,7 +515,7 @@ mod integration_tests {
 
             // Get git hash for comparison
             let git_output = Command::new("git")
-                .args(&["hash-object", filename])
+                .args(["hash-object", filename])
                 .current_dir(test_dir.path())
                 .output()
                 .expect("git command failed");
@@ -552,7 +548,7 @@ mod integration_tests {
         let grit_hash = run_grit_command(&test_dir, &["hash-object", "binary.dat"]).unwrap();
 
         let git_output = Command::new("git")
-            .args(&["hash-object", "binary.dat"])
+            .args(["hash-object", "binary.dat"])
             .current_dir(test_dir.path())
             .output()
             .expect("git command failed");

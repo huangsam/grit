@@ -138,7 +138,7 @@ fn collect_files_to_add(
         if pattern.contains('*') || pattern.contains('?') || pattern.contains('[') {
             // Glob pattern
             let glob_pattern = glob::Pattern::new(pattern)
-                .map_err(|e| GritError::RepositoryError(format!("Invalid glob pattern: {}", e)))?;
+                .map_err(|e| GritError::repo(format!("Invalid glob pattern: {}", e)))?;
 
             for file in &all_files {
                 if glob_pattern.matches_path(file) {
@@ -251,9 +251,8 @@ fn add_file_to_index(
     // Parse hash from hex string to bytes
     // The hash returned from `store_object` is hex-encoded; convert it to the
     // 20-byte binary form expected by the index.
-    let hash_bytes = hex::decode(&hash).map_err(|_| {
-        GritError::RepositoryError("Invalid hash returned from store_object".to_string())
-    })?;
+    let hash_bytes = hex::decode(&hash)
+        .map_err(|_| GritError::repo("Invalid hash returned from store_object"))?;
 
     let mut hash_array = [0u8; 20];
     hash_array.copy_from_slice(&hash_bytes);

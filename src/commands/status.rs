@@ -214,7 +214,7 @@ fn get_head_tree_entries(
         let tree_line = commit_content
             .lines()
             .find(|line| line.starts_with("tree "))
-            .ok_or_else(|| GritError::RepositoryError("Invalid commit format".to_string()))?;
+            .ok_or(GritError::repo("Invalid commit format"))?;
         let tree_hash = &tree_line[5..];
 
         // Read the tree object
@@ -267,7 +267,7 @@ fn collect_working_files(
             // Get relative path from repository root
             let relative_path = path
                 .strip_prefix(repo_root)
-                .map_err(|_| GritError::RepositoryError("File outside repository".to_string()))?
+                .map_err(|_| GritError::file_outside_repo(path.to_path_buf()))?
                 .to_string_lossy()
                 .to_string();
 

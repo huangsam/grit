@@ -63,7 +63,7 @@ pub fn create_commit(
     // Get current timestamp
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|_| GritError::RepositoryError("System time before Unix epoch".to_string()))?;
+        .map_err(|_| GritError::repo("System time before Unix epoch"))?;
     let timestamp = now.as_secs();
     let timezone = "+0000"; // UTC
 
@@ -101,33 +101,38 @@ pub fn create_commit(
 /// This prevents path traversal attacks and ensures reference names are valid.
 fn validate_ref_name(ref_name: &str) -> Result<(), GritError> {
     if ref_name.is_empty() {
-        return Err(GritError::RepositoryError(
-            "Reference name cannot be empty".to_string(),
-        ));
+        return Err(GritError::invalid_ref_name(format!(
+            "{}: reference name cannot be empty",
+            ref_name
+        )));
     }
 
     if ref_name.starts_with('/') || ref_name.ends_with('/') {
-        return Err(GritError::RepositoryError(
-            "Reference name cannot start or end with '/'".to_string(),
-        ));
+        return Err(GritError::invalid_ref_name(format!(
+            "{}: cannot start or end with '/'",
+            ref_name
+        )));
     }
 
     if ref_name.contains("..") {
-        return Err(GritError::RepositoryError(
-            "Reference name cannot contain '..'".to_string(),
-        ));
+        return Err(GritError::invalid_ref_name(format!(
+            "{}: cannot contain '..'",
+            ref_name
+        )));
     }
 
     if ref_name.contains("//") {
-        return Err(GritError::RepositoryError(
-            "Reference name cannot contain consecutive '/'".to_string(),
-        ));
+        return Err(GritError::invalid_ref_name(format!(
+            "{}: cannot contain consecutive '/'",
+            ref_name
+        )));
     }
 
     if ref_name.ends_with('.') {
-        return Err(GritError::RepositoryError(
-            "Reference name cannot end with '.'".to_string(),
-        ));
+        return Err(GritError::invalid_ref_name(format!(
+            "{}: cannot end with '.'",
+            ref_name
+        )));
     }
 
     // Check for control characters and spaces
@@ -135,16 +140,18 @@ fn validate_ref_name(ref_name: &str) -> Result<(), GritError> {
         .chars()
         .any(|c| c.is_control() || c.is_whitespace())
     {
-        return Err(GritError::RepositoryError(
-            "Reference name cannot contain control characters or spaces".to_string(),
-        ));
+        return Err(GritError::invalid_ref_name(format!(
+            "{}: cannot contain control characters or spaces",
+            ref_name
+        )));
     }
 
     // Reasonable length limit
     if ref_name.len() > 1024 {
-        return Err(GritError::RepositoryError(
-            "Reference name too long".to_string(),
-        ));
+        return Err(GritError::invalid_ref_name(format!(
+            "{}: reference name too long",
+            ref_name
+        )));
     }
 
     Ok(())
@@ -236,8 +243,7 @@ pub fn get_current_commit(repo_root: &Path) -> Result<Option<String>, GritError>
 pub fn show_commit_log(start_hash: &str, oneline: bool, repo_root: &Path) -> Result<(), GritError> {
     let repo = crate::repository::Repository::new(repo_root);
     let mut current_hash = if start_hash == "HEAD" {
-        get_current_commit(repo_root)?
-            .ok_or_else(|| GritError::RepositoryError("No commits yet".to_string()))?
+        get_current_commit(repo_root)?.ok_or(GritError::no_commits())?
     } else {
         start_hash.to_string()
     };
@@ -521,11 +527,12 @@ mod tests {
         let result = show_commit_log("HEAD", false, test_dir.path());
         assert!(result.is_err());
 
-        if let Err(GritError::RepositoryError(msg)) = result {
-            assert_eq!(msg, "No commits yet");
-        } else {
-            panic!("Expected RepositoryError");
-        }
+        assert!(matches!(
+            result,
+            Err(GritError::RepositoryError(
+                crate::error::RepoError::NoCommits
+            ))
+        ));
     }
 
     #[test]

@@ -127,9 +127,7 @@ pub fn initialize_repo(repo_root: &Path) -> Result<(), GritError> {
 
     // Check if repository already exists
     if grit_dir.exists() {
-        return Err(GritError::RepositoryError(
-            "Grit repository already exists".to_string(),
-        ));
+        return Err(GritError::repo("Grit repository already exists"));
     }
 
     // Create the basic directory structure
@@ -192,10 +190,9 @@ mod tests {
         let result2 = initialize_repo(test_dir.path());
         assert!(result2.is_err());
 
-        if let Err(GritError::RepositoryError(msg)) = result2 {
-            assert_eq!(msg, "Grit repository already exists");
-        } else {
-            panic!("Expected RepositoryError");
-        }
+        assert!(matches!(
+            result2,
+            Err(GritError::RepositoryError(crate::error::RepoError::General(ref m))) if m == "Grit repository already exists"
+        ));
     }
 }
