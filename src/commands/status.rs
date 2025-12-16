@@ -196,7 +196,10 @@ pub fn show_status(repo_root: &Path) -> Result<(), GritError> {
     Ok(())
 }
 
-/// Get the tree entries from the HEAD commit
+/// Retrieve the tree entries referenced by the current HEAD commit.
+///
+/// Handles symbolic HEADs (e.g., "ref: refs/heads/main") as well as direct
+/// hash references. If there are no commits yet, returns an empty vector.
 fn get_head_tree_entries(
     repo_root: &Path,
 ) -> Result<Vec<crate::plumbing::checkout::TreeEntry>, GritError> {
@@ -225,7 +228,10 @@ fn get_head_tree_entries(
     }
 }
 
-/// Recursively collect all files in the working directory with their SHA-1 hashes
+/// Walk the working directory and collect a mapping from repository-relative
+/// path to the computed blob SHA-1 hash for the file contents.
+///
+/// This is used by `status` to compare the working tree against the index and HEAD.
 fn collect_working_files(
     dir: &Path,
     files: &mut HashMap<String, [u8; 20]>,
@@ -247,6 +253,8 @@ fn collect_working_files(
             let content = fs::read(&path)?;
 
             // Compute Git object hash (blob)
+            // Note: Git hashes the header "blob <len>\0" followed by the file contents
+            // to produce the object id — we replicate the same calculation here.
             let header = format!("blob {}\0", content.len());
             let mut hasher = Sha1::new();
             hasher.update(header.as_bytes());

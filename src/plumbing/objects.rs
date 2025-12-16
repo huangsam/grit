@@ -197,7 +197,8 @@ pub fn store_object(
     obj_type: ObjectType,
     repo_root: &Path,
 ) -> Result<String, GritError> {
-    // Check hash cache first - compute content hash to see if we've stored this before
+    // Compute a content-based cache key (including object type) to detect previously
+    // stored objects and avoid collisions between blobs, trees, and commits
     let obj_type_u8 = obj_type.clone() as u8;
     let content_hash = format!("{}_{}", obj_type_u8, hex::encode(Sha1::digest(content)));
 
@@ -472,6 +473,12 @@ pub fn read_commit(repo: &crate::repository::Repository, hash: &str) -> Result<C
     parse_commit(&content)
 }
 
+/// Parse the textual content of a commit object into a `Commit` struct.
+///
+/// Commit objects consist of header lines (e.g., `tree <hash>`, `parent <hash>`,
+/// `author <...>`, `committer <...>`) followed by a blank line and the commit message.
+/// The parser collects headers until a blank line is encountered, after which
+/// all remaining lines are considered the commit message.
 fn parse_commit(content: &str) -> Result<Commit, GritError> {
     let lines = content.lines();
     let mut tree_hash = None;

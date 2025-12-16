@@ -115,7 +115,15 @@ pub fn add_files(files: &[String], repo_root: &Path) -> Result<(), GritError> {
     Ok(())
 }
 
-/// Collect all files that should be added based on the provided patterns/files
+/// Collect the set of files that should be added based on provided patterns.
+///
+/// Supports literal file paths (relative to the repo root), directories
+/// (recursively), and glob patterns (e.g., "*.rs"). Returned paths are
+/// repository-relative.
+///
+/// This function first enumerates all files in the repository and then filters
+/// them according to the supplied patterns to avoid repeated directory
+/// traversal for each pattern.
 fn collect_files_to_add(
     patterns: &[String],
     repo_root: &Path,
@@ -154,7 +162,10 @@ fn collect_files_to_add(
     Ok(files)
 }
 
-/// Recursively collect all files from the repository
+/// Recursively collect all files from `dir` into `files`.
+///
+/// Skips repository-specific entries such as the `.grit` directory and the
+/// `.gritignore` file. Paths inserted into `files` are repository-relative.
 fn collect_all_files(
     dir: &Path,
     files: &mut HashSet<PathBuf>,
@@ -184,7 +195,11 @@ fn collect_all_files(
     Ok(())
 }
 
-/// Recursively collect all files from a directory
+/// Recursively collect files from the given directory `dir` and add them to `files`.
+///
+/// This function behaves like `collect_all_files` but is scoped to a specific
+/// directory requested by the user (used when the user specifies a directory
+/// path explicitly to `grit add`).
 fn collect_files_from_directory(
     dir: &Path,
     files: &mut HashSet<PathBuf>,
@@ -214,7 +229,12 @@ fn collect_files_from_directory(
     Ok(())
 }
 
-/// Add a single file to the index
+/// Add a single file to the index by storing it as a blob and creating an index entry.
+///
+/// Steps:
+/// 1. Read the file contents
+/// 2. Store the contents as a blob object (CAS) and obtain its hex hash
+/// 3. Convert the hex hash into a 20-byte array and create an `IndexEntry`
 fn add_file_to_index(
     file_path: &Path,
     index: &mut crate::plumbing::index::Index,
@@ -229,6 +249,8 @@ fn add_file_to_index(
     let hash = store_object(&content, ObjectType::Blob, repo_root)?;
 
     // Parse hash from hex string to bytes
+    // The hash returned from `store_object` is hex-encoded; convert it to the
+    // 20-byte binary form expected by the index.
     let hash_bytes = hex::decode(&hash).map_err(|_| {
         GritError::RepositoryError("Invalid hash returned from store_object".to_string())
     })?;
