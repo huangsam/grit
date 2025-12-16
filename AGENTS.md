@@ -75,7 +75,8 @@ Grit provides a mix of plumbing and porcelain operations:
 2. Implement in `main()` match arm.
 3. If it's a high-level user command, place in `src/commands/`.
 4. If it's a low-level operation, place in `src/plumbing/`.
-5. Use `GritError` for errors; add tests.
+5. Use `GritError` and/or helpers (e.g., `GritError::repo`, `GritError::file_outside_repo`).
+6. Add a short doc comment and a focused unit test for any new error case.
 
 ### Future Features
 - Branch management (`branch`, `checkout -b`).
