@@ -49,7 +49,7 @@
 use std::path::Path;
 
 use crate::error::GritError;
-use crate::plumbing::diff::{DiffStatus, compare_trees, get_file_deltas};
+use crate::plumbing::diff::{DiffEntry, DiffStatus, compare_trees, get_file_deltas};
 use crate::plumbing::objects::{read_blob, read_commit};
 use crate::repository::Repository;
 
@@ -107,23 +107,7 @@ pub fn run_diff_command(
         let mut file_stats = Vec::new();
 
         for entry in diffs {
-            let (insertions, deletions) = match entry.status {
-                DiffStatus::Modified => {
-                    let content_a = read_blob(repo, &entry.hash_a)?;
-                    let content_b = read_blob(repo, &entry.hash_b)?;
-                    let (_, ins, del) = get_file_deltas(&content_a, &content_b, &entry.path);
-                    (ins, del)
-                }
-                DiffStatus::Added => {
-                    let content_b = read_blob(repo, &entry.hash_b)?;
-                    (content_b.lines().count(), 0)
-                }
-                DiffStatus::Deleted => {
-                    let content_a = read_blob(repo, &entry.hash_a)?;
-                    (0, content_a.lines().count())
-                }
-                DiffStatus::TypeChange => (0, 0), // For now, ignore
-            };
+            let (insertions, deletions) = file_changes(repo, &entry)?;
             total_insertions += insertions;
             total_deletions += deletions;
             file_stats.push((entry.path, insertions, deletions));
@@ -132,24 +116,7 @@ pub fn run_diff_command(
         // Print stat
         let num_files = file_stats.len();
         for (path, ins, del) in &file_stats {
-            let total_changes = *ins + *del;
-            if total_changes > 0 {
-                let bar_length = total_changes.min(20);
-                let plus_count =
-                    ((*ins as f32 / total_changes as f32) * bar_length as f32).round() as usize;
-                let minus_count = bar_length - plus_count;
-                let pluses = "+".repeat(plus_count);
-                let minuses = "-".repeat(minus_count);
-                println!(
-                    " {} | {} {}{}",
-                    path.display(),
-                    total_changes,
-                    pluses,
-                    minuses
-                );
-            } else {
-                println!(" {} | 0", path.display());
-            }
+            print_stat_bar(path, *ins, *del);
         }
         println!(
             " {} files changed, {} insertions(+), {} deletions(-)",
@@ -158,64 +125,110 @@ pub fn run_diff_command(
     } else {
         // Print diffs
         for entry in diffs {
-            match entry.status {
-                DiffStatus::Modified => {
-                    let content_a = read_blob(repo, &entry.hash_a)?;
-                    let content_b = read_blob(repo, &entry.hash_b)?;
-                    let (delta, _, _) = get_file_deltas(&content_a, &content_b, &entry.path);
-                    println!("{}", delta);
-                }
-                DiffStatus::Added => {
-                    println!(
-                        "diff --git a/{} b/{}",
-                        entry.path.display(),
-                        entry.path.display()
-                    );
-                    println!("new file mode {:o}", entry.mode_b);
-                    println!("index 0000000..{}", &entry.hash_b[..7]);
-                    println!("--- /dev/null");
-                    println!("+++ b/{}", entry.path.display());
-                    // For added files, show the full content as addition
-                    let content_b = read_blob(repo, &entry.hash_b)?;
-                    for line in content_b.lines() {
-                        println!("+{}", line);
-                    }
-                }
-                DiffStatus::Deleted => {
-                    println!(
-                        "diff --git a/{} b/{}",
-                        entry.path.display(),
-                        entry.path.display()
-                    );
-                    println!("deleted file mode {:o}", entry.mode_a);
-                    println!("index {}..0000000", &entry.hash_a[..7]);
-                    println!("--- a/{}", entry.path.display());
-                    println!("+++ /dev/null");
-                    // For deleted files, show the full content as deletion
-                    let content_a = read_blob(repo, &entry.hash_a)?;
-                    for line in content_a.lines() {
-                        println!("-{}", line);
-                    }
-                }
-                DiffStatus::TypeChange => {
-                    println!(
-                        "diff --git a/{} b/{}",
-                        entry.path.display(),
-                        entry.path.display()
-                    );
-                    println!("old mode {:o}", entry.mode_a);
-                    println!("new mode {:o}", entry.mode_b);
-                    // Could show content diff if both are blobs
-                    if entry.mode_a == 0o100644 && entry.mode_b == 0o100644 {
-                        let content_a = read_blob(repo, &entry.hash_a)?;
-                        let content_b = read_blob(repo, &entry.hash_b)?;
-                        let (delta, _, _) = get_file_deltas(&content_a, &content_b, &entry.path);
-                        println!("{}", delta);
-                    }
-                }
-            }
+            print_entry_diff(repo, &entry)?;
         }
     }
 
+    Ok(())
+}
+
+// Helper: compute insertions/deletions for a single diff entry
+fn file_changes(repo: &Repository, entry: &DiffEntry) -> Result<(usize, usize), GritError> {
+    match entry.status {
+        DiffStatus::Modified => {
+            let content_a = read_blob(repo, &entry.hash_a)?;
+            let content_b = read_blob(repo, &entry.hash_b)?;
+            let (_, ins, del) = get_file_deltas(&content_a, &content_b, &entry.path);
+            Ok((ins, del))
+        }
+        DiffStatus::Added => {
+            let content_b = read_blob(repo, &entry.hash_b)?;
+            Ok((content_b.lines().count(), 0))
+        }
+        DiffStatus::Deleted => {
+            let content_a = read_blob(repo, &entry.hash_a)?;
+            Ok((0, content_a.lines().count()))
+        }
+        DiffStatus::TypeChange => Ok((0, 0)),
+    }
+}
+
+// Helper: print a compact stat bar for a file
+fn print_stat_bar(path: &Path, ins: usize, del: usize) {
+    let total_changes = ins + del;
+    if total_changes > 0 {
+        let bar_length = total_changes.min(20);
+        let plus_count =
+            (((ins as f32) / (total_changes as f32)) * (bar_length as f32)).round() as usize;
+        let minus_count = bar_length - plus_count;
+        let pluses = "+".repeat(plus_count);
+        let minuses = "-".repeat(minus_count);
+        println!(
+            " {} | {} {}{}",
+            path.display(),
+            total_changes,
+            pluses,
+            minuses
+        );
+    } else {
+        println!(" {} | 0", path.display());
+    }
+}
+
+// Helper: print a full diff for an entry
+fn print_entry_diff(repo: &Repository, entry: &DiffEntry) -> Result<(), GritError> {
+    match entry.status {
+        DiffStatus::Modified => {
+            let content_a = read_blob(repo, &entry.hash_a)?;
+            let content_b = read_blob(repo, &entry.hash_b)?;
+            let (delta, _, _) = get_file_deltas(&content_a, &content_b, &entry.path);
+            println!("{}", delta);
+        }
+        DiffStatus::Added => {
+            println!(
+                "diff --git a/{} b/{}",
+                entry.path.display(),
+                entry.path.display()
+            );
+            println!("new file mode {:o}", entry.mode_b);
+            println!("index 0000000..{}", &entry.hash_b[..7]);
+            println!("--- /dev/null");
+            println!("+++ b/{}", entry.path.display());
+            let content_b = read_blob(repo, &entry.hash_b)?;
+            for line in content_b.lines() {
+                println!("+{}", line);
+            }
+        }
+        DiffStatus::Deleted => {
+            println!(
+                "diff --git a/{} b/{}",
+                entry.path.display(),
+                entry.path.display()
+            );
+            println!("deleted file mode {:o}", entry.mode_a);
+            println!("index {}..0000000", &entry.hash_a[..7]);
+            println!("--- a/{}", entry.path.display());
+            println!("+++ /dev/null");
+            let content_a = read_blob(repo, &entry.hash_a)?;
+            for line in content_a.lines() {
+                println!("-{}", line);
+            }
+        }
+        DiffStatus::TypeChange => {
+            println!(
+                "diff --git a/{} b/{}",
+                entry.path.display(),
+                entry.path.display()
+            );
+            println!("old mode {:o}", entry.mode_a);
+            println!("new mode {:o}", entry.mode_b);
+            if entry.mode_a == 0o100644 && entry.mode_b == 0o100644 {
+                let content_a = read_blob(repo, &entry.hash_a)?;
+                let content_b = read_blob(repo, &entry.hash_b)?;
+                let (delta, _, _) = get_file_deltas(&content_a, &content_b, &entry.path);
+                println!("{}", delta);
+            }
+        }
+    }
     Ok(())
 }
