@@ -84,25 +84,25 @@ impl ObjectCache {
     }
 
     /// Clear all cached objects (useful for testing or memory cleanup)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn clear(&self) {
         self.cache.lock().unwrap().clear();
     }
 
     /// Get current number of cached objects (for monitoring/debugging)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn len(&self) -> usize {
         self.cache.lock().unwrap().len()
     }
 
     /// Check if cache is empty (useful for testing)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.cache.lock().unwrap().is_empty()
     }
 
     /// Get cache capacity (maximum number of objects that can be cached)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn cap(&self) -> usize {
         self.cache.lock().unwrap().cap().get()
     }
@@ -160,7 +160,7 @@ impl HashCache {
     }
 
     /// Clear all cached hash mappings (useful for testing or memory cleanup)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn clear(&self) {
         self.cache.lock().unwrap().clear();
     }
@@ -219,25 +219,25 @@ impl TreeCache {
     }
 
     /// Clear all cached tree entries (useful for testing or memory cleanup)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn clear(&self) {
         self.cache.lock().unwrap().clear();
     }
 
     /// Get current number of cached tree structures (for monitoring)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn len(&self) -> usize {
         self.cache.lock().unwrap().len()
     }
 
     /// Check if tree cache is empty (useful for testing)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.cache.lock().unwrap().is_empty()
     }
 
     /// Get tree cache capacity (maximum number of tree structures that can be cached)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn cap(&self) -> usize {
         self.cache.lock().unwrap().cap().get()
     }
@@ -298,7 +298,7 @@ impl CacheManager {
     /// - Large repos: increase all capacities
     /// - Memory-constrained: decrease capacities
     /// - Hash-heavy workloads: increase hash_capacity
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn with_capacities(
         object_capacity: usize,
         hash_capacity: usize,
@@ -313,7 +313,7 @@ impl CacheManager {
 
     /// Clear all caches simultaneously (useful for testing or memory cleanup)
     /// Ensures clean state across all cache types
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn clear_all(&self) {
         self.object_cache.clear();
         self.hash_cache.clear();
@@ -330,4 +330,79 @@ impl Default for CacheManager {
 // Global cache instance (lazy static would be better, but keeping it simple)
 lazy_static::lazy_static! {
     pub static ref GLOBAL_CACHE: CacheManager = CacheManager::new();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::plumbing::objects::{Object, ObjectType};
+    use crate::plumbing::checkout::TreeEntry;
+
+    #[test]
+    fn object_cache_helpers() {
+        let cache = ObjectCache::new(10);
+        assert!(cache.is_empty());
+        assert_eq!(cache.len(), 0);
+        assert_eq!(cache.cap(), 10);
+
+        let obj = Object {
+            obj_type: ObjectType::Blob,
+            content: b"hi".to_vec(),
+        };
+        cache.put("abc".to_string(), obj.clone());
+        assert!(!cache.is_empty());
+        assert_eq!(cache.len(), 1);
+        assert_eq!(cache.get("abc").unwrap().content, b"hi".to_vec());
+
+        cache.clear();
+        assert!(cache.is_empty());
+    }
+
+    #[test]
+    fn hash_cache_helpers() {
+        let cache = HashCache::new(10);
+        assert!(cache.get("key").is_none());
+        cache.put("key".into(), "val".into());
+        assert_eq!(cache.get("key").as_deref(), Some("val"));
+        cache.clear();
+        assert!(cache.get("key").is_none());
+    }
+
+    #[test]
+    fn tree_cache_helpers() {
+        let cache = TreeCache::new(5);
+        assert!(cache.is_empty());
+        assert_eq!(cache.cap(), 5);
+        let entry = TreeEntry {
+            mode: "100644".to_string(),
+            name: "file.txt".to_string(),
+            hash: [0u8; 20],
+        };
+        cache.put("t".into(), vec![entry]);
+        assert!(!cache.is_empty());
+        assert_eq!(cache.len(), 1);
+        cache.clear();
+        assert!(cache.is_empty());
+    }
+
+    #[test]
+    fn cache_manager_helpers() {
+        let mgr = CacheManager::with_capacities(2, 3, 4);
+        assert_eq!(mgr.object_cache.cap(), 2);
+        assert_eq!(mgr.hash_cache.get("x"), None);
+
+        let obj = Object {
+            obj_type: ObjectType::Blob,
+            content: b"hi".to_vec(),
+        };
+        mgr.object_cache.put("k".into(), obj);
+        mgr.hash_cache.put("h".into(), "v".into());
+        mgr.tree_cache.put("t".into(), vec![]);
+
+        mgr.clear_all();
+
+        assert!(mgr.object_cache.is_empty());
+        assert!(mgr.hash_cache.get("h").is_none());
+        assert!(mgr.tree_cache.is_empty());
+    }
 }
