@@ -1,8 +1,8 @@
 //! # Git Diff Algorithm Implementation Module
 //!
 //! This module implements the core diff functionality for comparing file contents and
-//! repository states. It uses the Myers diff algorithm for efficient line-by-line
-//! comparison of text files.
+//! repository states. It provides line-by-line comparison of text files using a simple
+//! but effective diffing strategy.
 //!
 //! ## Overview
 //!
@@ -12,21 +12,22 @@
 //! - Support for unified diff output format
 //! - Comparison between commits, trees, or working directory
 //!
-//! ## Myers Algorithm
+//! ## Diffing Algorithm
 //!
-//! The Myers diff algorithm is an O(ND) algorithm that finds the minimum number of
-//! edits (insertions, deletions) to transform one sequence into another. It's
-//! particularly efficient for finding differences in text files.
+//! The implementation uses a straightforward line-by-line comparison approach:
+//! - Skips identical lines in sequence
+//! - Groups consecutive differences together
+//! - Generates unified diff output with context
+//! - Simple, predictable, and sufficient for most use cases
 //!
 //! ## Features
 //!
-//! - `diff_files()`: Compares two files and returns diff output
-//! - `diff_commits()`: Compares two commits or trees
-//! - Myers algorithm implementation for sequence comparison
-//! - Unified diff formatting functions
-//! - Support for binary file detection
-//! - Performance optimizations for large files
+//! - Tree comparison for detecting file-level changes
+//! - File content diffing with unified diff output format
+//! - Change detection (added, deleted, modified files)
+//! - Diff statistics (insertion/deletion counts)
 //! - Integration with repository object database
+//! - Support for comparing commits, trees, and working directory
 //!
 //! ## Usage
 //!
@@ -253,17 +254,21 @@ pub fn get_file_deltas(content_a: &str, content_b: &str, path: &Path) -> (String
     let mut insertions = 0;
     let mut deletions = 0;
 
+    // Simple line-by-line comparison: advance through both files
+    // stopping when we encounter a difference, then regroup differences
     let mut i = 0;
     let mut j = 0;
 
     while i < lines_a.len() && j < lines_b.len() {
         if lines_a[i] == lines_b[j] {
+            // Lines match, advance both pointers
             i += 1;
             j += 1;
         } else {
-            // Find the end of the difference
+            // Lines differ: mark the start and group consecutive differences
             let start_i = i;
             let start_j = j;
+            // Advance through non-matching lines in both files
             while i < lines_a.len() && j < lines_b.len() && lines_a[i] != lines_b[j] {
                 i += 1;
                 j += 1;

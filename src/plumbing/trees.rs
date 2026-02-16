@@ -99,6 +99,22 @@ pub fn write_tree_from_index(index: &Index, repo_root: &Path) -> Result<String, 
     build_tree_recursive(&index.entries, 0, repo_root)
 }
 
+/// Recursively builds tree objects from a flat list of index entries.
+///
+/// The Git tree structure is hierarchical, but the index stores a flat list of all files.
+/// This function converts that flat representation into nested tree objects by:
+/// 1. Partitioning entries into groups (files at current level vs. directories)
+/// 2. Recursing for each directory to create subtrees
+/// 3. Caching each subtree as a Git object
+/// 4. Building a tree object for the current level
+///
+/// # Arguments
+/// * `entries` - Slice of all index entries (sorted by path)
+/// * `prefix_len` - Number of characters to skip at the start of each path (for current level)
+/// * `repo_root` - Root directory of the repository
+///
+/// # Returns
+/// The hex-encoded SHA-1 hash of the created tree object for this level.
 fn build_tree_recursive(
     entries: &[IndexEntry],
     prefix_len: usize,
@@ -107,39 +123,43 @@ fn build_tree_recursive(
     let mut tree_entries = Vec::new();
     let mut i = 0;
 
+    // Iterate through entries at the current directory level
     while i < entries.len() {
         let entry = &entries[i];
         let path = &entry.path;
 
-        // Get the path relative to the current level
+        // Extract the path components relative to current directory level
         let relative_path = &path[prefix_len..];
 
         if let Some(slash_pos) = relative_path.find('/') {
-            // It's a directory
+            // This entry (and possibly others) belongs to a subdirectory
             let dir_name = &relative_path[..slash_pos];
             let full_dir_prefix = format!("{}{}/", &path[..prefix_len], dir_name);
 
-            // Find all entries in this directory
+            // Count how many entries belong to this subdirectory by finding the
+            // last entry that starts with the directory prefix
             let mut j = i + 1;
             while j < entries.len() && entries[j].path.starts_with(&full_dir_prefix) {
                 j += 1;
             }
 
-            // Recurse to create subtree
+            // Recursively create a tree for all entries in this subdirectory
             let subtree_hash_hex =
                 build_tree_recursive(&entries[i..j], full_dir_prefix.len(), repo_root)?;
             let subtree_hash = hex::decode(&subtree_hash_hex)
                 .map_err(|_| GritError::CorruptObject("Invalid hash".to_string()))?;
 
+            // Add this subdirectory as a tree entry (mode 40000 = directory)
             tree_entries.push(TreeEntry {
                 mode: "40000".to_string(),
                 name: dir_name.to_string(),
                 hash: subtree_hash.try_into().unwrap(),
             });
 
+            // Skip all entries we just processed
             i = j;
         } else {
-            // It's a file in this directory
+            // This entry is a file at the current directory level (no '/'' in relative path)
             tree_entries.push(TreeEntry {
                 mode: format!("{:o}", entry.mode),
                 name: relative_path.to_string(),

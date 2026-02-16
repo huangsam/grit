@@ -144,7 +144,6 @@ impl From<std::time::SystemTimeError> for GritError {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,12 +152,30 @@ mod tests {
 
     #[test]
     fn test_repo_error_display_and_helpers() {
-        assert_eq!(GritError::repo("oops").to_string(), "General repository issue: oops");
-        assert_eq!(GritError::no_commits().to_string(), "No commits exist in the repository yet");
-        assert_eq!(GritError::not_a_commit("deadbeef").to_string(), "Not a commit: deadbeef");
-        assert_eq!(GritError::file_outside_repo(PathBuf::from("/tmp/foo")).to_string(), "File outside repository: /tmp/foo");
-        assert_eq!(GritError::invalid_index("bad").to_string(), "Invalid index: bad");
-        assert_eq!(GritError::invalid_ref_name("badref").to_string(), "Invalid ref name: badref");
+        assert_eq!(
+            GritError::repo("oops").to_string(),
+            "General repository issue: oops"
+        );
+        assert_eq!(
+            GritError::no_commits().to_string(),
+            "No commits exist in the repository yet"
+        );
+        assert_eq!(
+            GritError::not_a_commit("deadbeef").to_string(),
+            "Not a commit: deadbeef"
+        );
+        assert_eq!(
+            GritError::file_outside_repo(PathBuf::from("/tmp/foo")).to_string(),
+            "File outside repository: /tmp/foo"
+        );
+        assert_eq!(
+            GritError::invalid_index("bad").to_string(),
+            "Invalid index: bad"
+        );
+        assert_eq!(
+            GritError::invalid_ref_name("badref").to_string(),
+            "Invalid ref name: badref"
+        );
     }
 
     #[test]

@@ -140,20 +140,27 @@ fn main() -> Result<(), GritError> {
             println!("{}", hash);
         }
         Commands::Commit { message } => {
-            // Read the index
+            // Step 1: Read the staging area (index) to see what files are staged for commit
             let index = read_index(Path::new("."))?;
 
-            // Create tree from index
+            // Step 2: Create a tree object from the staged files in the index.
+            // The tree represents the complete directory structure at this commit.
             let tree_hash = write_tree_from_index(&index, Path::new("."))?;
 
-            // Get the parent commit from HEAD
+            // Step 3: Get the parent commit hash from HEAD to link this commit to history.
+            // For the first commit, this will be None; for subsequent commits, it points
+            // to the previous commit in the chain.
             let parent_hash = get_current_commit(Path::new("."))?;
             let parent_hash = parent_hash.as_deref();
 
-            // Create the commit
+            // Step 4: Create a new commit object containing the tree, parent reference,
+            // and the commit message. This forms a node in the DAG (directed acyclic graph)
+            // of commit history.
             let commit_hash = create_commit(&tree_hash, parent_hash, &message, Path::new("."))?;
 
-            // Update the current branch or HEAD to point to the new commit
+            // Step 5: Update the current reference (branch or HEAD) to point to the newly
+            // created commit. This advances the branch pointer forward and makes the new
+            // commit part of the repository history.
             let head_path = Path::new(".grit").join("HEAD");
             let head_content = fs::read_to_string(&head_path)?;
             let current_ref = if let Some(ref_name) = head_content.strip_prefix("ref: ") {
@@ -163,6 +170,7 @@ fn main() -> Result<(), GritError> {
             };
             update_ref(&current_ref, &commit_hash, Path::new("."))?;
 
+            // Output the hash of the created commit for confirmation
             println!("{}", commit_hash);
         }
         Commands::Checkout { hash } => {

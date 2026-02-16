@@ -335,8 +335,8 @@ lazy_static::lazy_static! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plumbing::objects::{Object, ObjectType};
     use crate::plumbing::checkout::TreeEntry;
+    use crate::plumbing::objects::{Object, ObjectType};
 
     #[test]
     fn object_cache_helpers() {
