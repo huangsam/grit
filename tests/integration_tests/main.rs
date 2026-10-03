@@ -1,0 +1,10 @@
+mod common;
+mod test_branch;
+mod test_checkout;
+mod test_commit_log;
+mod test_diff;
+mod test_gritignore;
+mod test_objects;
+mod test_reset;
+mod test_status;
+mod test_workflow;
