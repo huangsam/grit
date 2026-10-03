@@ -261,6 +261,65 @@ fn test_checkout_workflow() {
 }
 
 #[test]
+fn test_checkout_tree_snapshot() {
+    let test_dir = setup_integration_test();
+
+    run_grit_command(&test_dir, &["init"]).unwrap();
+
+    fs::write(test_dir.path().join("snap.txt"), "snapshot content\n").unwrap();
+    run_grit_command(&test_dir, &["add", "snap.txt"]).unwrap();
+    let tree_hash = run_grit_command(&test_dir, &["write-tree"]).unwrap();
+
+    // Modify file
+    fs::write(test_dir.path().join("snap.txt"), "modified content\n").unwrap();
+
+    // Checkout tree snapshot directly
+    let checkout_out = run_grit_command(&test_dir, &["checkout", &tree_hash]).unwrap();
+    assert!(checkout_out.contains("Restored snapshot"));
+
+    // File restored to snapshot content
+    assert_eq!(
+        fs::read_to_string(test_dir.path().join("snap.txt")).unwrap(),
+        "snapshot content\n"
+    );
+}
+
+#[test]
+fn test_checkout_error_cases() {
+    let test_dir = setup_integration_test();
+
+    run_grit_command(&test_dir, &["init"]).unwrap();
+
+    // 1. Cannot checkout -b on empty repo
+    let err_empty_b = run_grit_command(&test_dir, &["checkout", "-b", "dev"]);
+    assert!(err_empty_b.is_err());
+    assert!(
+        err_empty_b
+            .unwrap_err()
+            .contains("not a valid object name: 'HEAD'")
+    );
+
+    // Initial commit
+    fs::write(test_dir.path().join("file.txt"), "content").unwrap();
+    run_grit_command(&test_dir, &["add", "."]).unwrap();
+    run_grit_command(&test_dir, &["commit", "-m", "First"]).unwrap();
+
+    // 2. Cannot checkout nonexistent branch/pathspec
+    let err_nonexistent = run_grit_command(&test_dir, &["checkout", "ghost_branch"]);
+    assert!(err_nonexistent.is_err());
+    assert!(
+        err_nonexistent
+            .unwrap_err()
+            .contains("did not match any file(s) known to grit")
+    );
+
+    // 3. Cannot checkout -b with name of already existing branch
+    let err_existing = run_grit_command(&test_dir, &["checkout", "-b", "main"]);
+    assert!(err_existing.is_err());
+    assert!(err_existing.unwrap_err().contains("already exists"));
+}
+
+#[test]
 fn test_git_compatibility() {
     let test_dir = setup_integration_test();
 
