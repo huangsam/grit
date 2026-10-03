@@ -164,6 +164,33 @@ pub fn show_status(repo_root: &Path) -> Result<(), GritError> {
     // Filter out ignored untracked files
     untracked_files.retain(|path| !is_ignored(Path::new(path), &ignore_patterns));
 
+    // Display branch header
+    let head_path = repo_root.join(".grit").join("HEAD");
+    if head_path.exists() {
+        let head_content = fs::read_to_string(&head_path)?;
+        let head_content = head_content.trim();
+        if let Some(branch_name) = head_content.strip_prefix("ref: refs/heads/") {
+            println!("On branch {}", branch_name);
+            let branch_ref = repo_root
+                .join(".grit")
+                .join("refs")
+                .join("heads")
+                .join(branch_name);
+            if !branch_ref.exists() {
+                println!("\nNo commits yet\n");
+            }
+        } else if let Some(ref_name) = head_content.strip_prefix("ref: ") {
+            println!("On ref {}", ref_name);
+        } else {
+            let short = if head_content.len() >= 7 {
+                &head_content[..7]
+            } else {
+                head_content
+            };
+            println!("HEAD detached at {}", short);
+        }
+    }
+
     // Display results
     if !staged_changes.is_empty() {
         println!("Changes to be committed:");

@@ -404,3 +404,32 @@ fn test_checkout_branch_workflow() {
     // dev.txt should be restored
     assert!(test_dir.path().join("dev.txt").exists());
 }
+
+#[test]
+fn test_status_workflow() {
+    let test_dir = setup_integration_test();
+
+    run_grit_command(&test_dir, &["init"]).unwrap();
+    let status_init = run_grit_command(&test_dir, &["status"]).unwrap();
+    assert!(status_init.contains("On branch main"));
+    assert!(status_init.contains("No commits yet"));
+
+    // Add a file and check status
+    fs::write(test_dir.path().join("file.txt"), "content").unwrap();
+    let status_untracked = run_grit_command(&test_dir, &["status"]).unwrap();
+    assert!(status_untracked.contains("On branch main"));
+    assert!(status_untracked.contains("Untracked files:"));
+    assert!(status_untracked.contains("file.txt"));
+
+    // Stage the file and check status
+    run_grit_command(&test_dir, &["add", "file.txt"]).unwrap();
+    let status_staged = run_grit_command(&test_dir, &["status"]).unwrap();
+    assert!(status_staged.contains("Changes to be committed:"));
+    assert!(status_staged.contains("new file: file.txt"));
+
+    // Commit and verify clean status
+    run_grit_command(&test_dir, &["commit", "-m", "Commit"]).unwrap();
+    let status_clean = run_grit_command(&test_dir, &["status"]).unwrap();
+    assert!(status_clean.contains("On branch main"));
+    assert!(status_clean.contains("nothing to commit, working tree clean"));
+}
