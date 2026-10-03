@@ -232,10 +232,12 @@ pub fn reset_paths(commit_hash: &str, paths: &[String], repo_root: &Path) -> Res
     Ok(())
 }
 
+/// Checks whether an index entry path matches a target path either exactly or as a directory prefix.
 fn matches_path(entry_path: &str, target_path: &str) -> bool {
     entry_path == target_path || entry_path.starts_with(&format!("{}/", target_path))
 }
 
+/// Extracts the root tree object hash from a commit object's text representation.
 fn extract_tree_hash(commit_content: &str) -> Result<String, GritError> {
     commit_content
         .lines()

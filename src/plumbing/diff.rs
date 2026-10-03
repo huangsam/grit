@@ -43,6 +43,7 @@ use crate::plumbing::checkout::TreeEntry;
 use crate::plumbing::objects;
 use crate::repository::Repository;
 
+/// Represents the type of modification between two tree entries.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DiffStatus {
     /// File was added in the new tree compared to the old tree
@@ -76,11 +77,17 @@ pub enum DiffStatus {
 /// field indicates whether files were added, modified, deleted, or had type changes.
 #[derive(Debug, Clone)]
 pub struct DiffEntry {
+    /// File or directory path relative to the diff root.
     pub path: PathBuf,
+    /// File mode (permissions) in the first (old) tree.
     pub mode_a: u32,
+    /// SHA-1 hash of the object in the first (old) tree.
     pub hash_a: String,
+    /// File mode (permissions) in the second (new) tree.
     pub mode_b: u32,
+    /// SHA-1 hash of the object in the second (new) tree.
     pub hash_b: String,
+    /// Type of change observed between the two trees.
     pub status: DiffStatus,
 }
 

@@ -21,6 +21,7 @@
 //! - [reset]: Reset to previous states
 //! - [diff]: Show differences between commits/files
 //! - [branch]: Manage repository branches
+//! - [checkout]: Switch branches or restore tree snapshots
 //!
 //! Each command module parses arguments, validates input, calls plumbing operations,
 //! and formats results for users.

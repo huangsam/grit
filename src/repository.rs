@@ -72,6 +72,7 @@ use std::path::{Path, PathBuf};
 /// the index, and creating commits.
 #[derive(Debug, Clone)]
 pub struct Repository {
+    /// Root filesystem path of the repository working tree.
     pub root: PathBuf,
 }
 

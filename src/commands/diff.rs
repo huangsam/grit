@@ -52,13 +52,21 @@ use crate::repository::Repository;
 /// Represents a single file difference prepared for display or statistical reporting.
 #[derive(Debug, Clone)]
 pub struct DiffItem {
+    /// Target file or directory path relative to repository root.
     pub path: PathBuf,
+    /// Modification status (Added, Deleted, Modified, TypeChange).
     pub status: DiffStatus,
+    /// File mode (permissions) in old tree/index/commit.
     pub mode_a: u32,
+    /// File mode (permissions) in new tree/index/commit.
     pub mode_b: u32,
+    /// 40-character hex SHA-1 of old object content.
     pub hash_a: String,
+    /// 40-character hex SHA-1 of new object content.
     pub hash_b: String,
+    /// Decoded text content of old file version.
     pub content_a: String,
+    /// Decoded text content of new file version.
     pub content_b: String,
 }
 

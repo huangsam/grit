@@ -29,6 +29,7 @@
 //! - [reset](commands::reset): Reset HEAD and working directory (`grit reset`)
 //! - [diff](commands::diff): Show changes between commits (`grit diff`)
 //! - [branch](commands::branch): Manage repository branches (`grit branch`)
+//! - [checkout](commands::checkout): Switch branches or restore tree files (`grit checkout`)
 //!
 //! ### Infrastructure
 //! - [repository]: Repository initialization and management
@@ -87,9 +88,9 @@
 //!
 //! Grit continues to evolve with additional Git functionality:
 //!
-//! - **Branch Management**: Branch creation, switching, and merging
-//! - **Packfile Support**: Efficient storage for large repositories
-//! - **Advanced Diffing**: Enhanced file comparison and patch generation
+//! - **Merge and Rebase**: Intelligent branch merging and conflict resolution
+//! - **Packfile Support**: Efficient storage and index resolution for large repositories
+//! - **Remote Operations**: Fetch, pull, push, and wire protocol implementation
 //!
 //! ## Contributing
 //!

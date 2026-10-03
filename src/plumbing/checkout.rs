@@ -159,8 +159,11 @@ fn restore_tree(tree_hash: &str, repo_root: &Path, current_path: &Path) -> Resul
 /// and directories with correct permissions and content references.
 #[derive(Debug, Clone)]
 pub struct TreeEntry {
+    /// File mode as octal string (e.g. "100644" for normal file, "40000" for tree).
     pub mode: String,
+    /// Filename or directory name component.
     pub name: String,
+    /// 20-byte binary SHA-1 hash of the referenced object.
     pub hash: [u8; 20],
 }
 

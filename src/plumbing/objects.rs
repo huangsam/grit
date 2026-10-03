@@ -115,6 +115,7 @@ pub struct Object {
 /// to reconstruct working directories from commits.
 #[derive(Debug, Clone)]
 pub struct Tree {
+    /// Parsed entries belonging to this tree object.
     pub entries: Vec<crate::plumbing::checkout::TreeEntry>,
 }
 
@@ -153,10 +154,15 @@ use std::fmt;
 /// and understand the evolution of the codebase over time.
 #[derive(Debug, Clone)]
 pub struct Commit {
+    /// SHA-1 hash of the root tree object referenced by this commit.
     pub tree_hash: String,
+    /// Parent commit hashes (empty for the root commit, multiple for merge commits).
     pub parent_hashes: Vec<String>,
+    /// Author attribution header with name, email, and timestamp.
     pub author: String,
+    /// Committer attribution header with name, email, and timestamp.
     pub committer: String,
+    /// Commit log message describing changes.
     pub message: String,
 }
 

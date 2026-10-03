@@ -274,8 +274,11 @@ impl TreeCache {
 ///
 /// All caches are thread-safe and can be accessed concurrently from multiple operations.
 pub struct CacheManager {
+    /// In-memory LRU cache storing parsed Git objects by their SHA-1 hash.
     pub object_cache: ObjectCache,
+    /// In-memory LRU cache mapping raw content hashes to stored object hashes.
     pub hash_cache: HashCache,
+    /// In-memory LRU cache storing parsed tree entries by tree object hash.
     pub tree_cache: TreeCache,
 }
 
@@ -327,7 +330,7 @@ impl Default for CacheManager {
     }
 }
 
-// Global cache instance
+/// Global singleton instance of [`CacheManager`] used across Grit operations.
 pub static GLOBAL_CACHE: LazyLock<CacheManager> = LazyLock::new(CacheManager::new);
 
 #[cfg(test)]
