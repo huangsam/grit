@@ -66,7 +66,7 @@ Grit provides a mix of plumbing and porcelain operations:
 - **Core**: `clap` (CLI parsing), `flate2` (zlib compression), `sha1` (hashing), `hex` (hex encoding).
 - **FileSystem**: `glob` (pattern matching).
 - **Performance**: `lru` (caching), `lazy_static` (statics).
-- **Dev**: `tempfile`, `proptest` (testing), `criterion` (benchmarking).
+- **Dev**: `tempfile`, `proptest`, `assert_cmd` (testing), `criterion` (benchmarking).
 
 ## Extending Grit
 
