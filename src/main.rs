@@ -95,15 +95,18 @@ enum Commands {
         #[arg(last = true)]
         paths: Vec<String>,
     },
-    /// Show differences between two commits
+    /// Show differences between commits, working tree, and index
     Diff {
-        /// First commit hash
-        hash_a: String,
-        /// Second commit hash
-        hash_b: String,
+        /// First commit or revision to compare
+        commit_a: Option<String>,
+        /// Second commit or revision to compare
+        commit_b: Option<String>,
         /// Show diffstat instead of patch
         #[arg(long)]
         stat: bool,
+        /// Show staged changes (index vs HEAD)
+        #[arg(long, aliases = ["cached"])]
+        staged: bool,
     },
     /// List, create, or delete branches
     Branch {
@@ -236,12 +239,19 @@ fn main() -> Result<(), GritError> {
             }
         }
         Commands::Diff {
-            hash_a,
-            hash_b,
+            commit_a,
+            commit_b,
             stat,
+            staged,
         } => {
             let repo = Repository::new(Path::new("."));
-            commands::diff::run_diff_command(&repo, &hash_a, &hash_b, stat)?;
+            commands::diff::diff(
+                &repo,
+                commit_a.as_deref(),
+                commit_b.as_deref(),
+                staged,
+                stat,
+            )?;
         }
         Commands::Branch { name, delete } => {
             commands::branch::run_branch_command(

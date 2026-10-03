@@ -121,19 +121,30 @@ pub fn compare_trees(
     tree_hash_b: &str,
     prefix: &Path,
 ) -> Result<Vec<DiffEntry>, GritError> {
-    let tree_a = objects::read_tree(repo, tree_hash_a)?;
-    let tree_b = objects::read_tree(repo, tree_hash_b)?;
+    if tree_hash_a == tree_hash_b {
+        return Ok(Vec::new());
+    }
+
+    let tree_a = if !tree_hash_a.is_empty() {
+        Some(objects::read_tree(repo, tree_hash_a)?)
+    } else {
+        None
+    };
+
+    let tree_b = if !tree_hash_b.is_empty() {
+        Some(objects::read_tree(repo, tree_hash_b)?)
+    } else {
+        None
+    };
 
     let entries_a: HashMap<&str, &TreeEntry> = tree_a
-        .entries
-        .iter()
-        .map(|e| (e.name.as_str(), e))
-        .collect();
+        .as_ref()
+        .map(|t| t.entries.iter().map(|e| (e.name.as_str(), e)).collect())
+        .unwrap_or_default();
     let entries_b: HashMap<&str, &TreeEntry> = tree_b
-        .entries
-        .iter()
-        .map(|e| (e.name.as_str(), e))
-        .collect();
+        .as_ref()
+        .map(|t| t.entries.iter().map(|e| (e.name.as_str(), e)).collect())
+        .unwrap_or_default();
 
     let mut diffs = Vec::new();
 
@@ -142,14 +153,19 @@ pub fn compare_trees(
         if !entries_b.contains_key(name) {
             let full_path = prefix.join(name);
             let mode_a = u32::from_str_radix(&entry_a.mode, 8).unwrap_or(0);
-            diffs.push(DiffEntry {
-                path: full_path,
-                mode_a,
-                hash_a: hex::encode(entry_a.hash),
-                mode_b: 0,
-                hash_b: String::new(),
-                status: DiffStatus::Deleted,
-            });
+            if mode_a == 0o040000 {
+                let sub_diffs = compare_trees(repo, &hex::encode(entry_a.hash), "", &full_path)?;
+                diffs.extend(sub_diffs);
+            } else {
+                diffs.push(DiffEntry {
+                    path: full_path,
+                    mode_a,
+                    hash_a: hex::encode(entry_a.hash),
+                    mode_b: 0,
+                    hash_b: String::new(),
+                    status: DiffStatus::Deleted,
+                });
+            }
         }
     }
 
@@ -157,10 +173,19 @@ pub fn compare_trees(
     for (name, entry_b) in &entries_b {
         let full_path = prefix.join(name);
         if let Some(entry_a) = entries_a.get(name) {
-            // In both
-            if entry_a.hash != entry_b.hash {
-                let mode_a = u32::from_str_radix(&entry_a.mode, 8).unwrap_or(0);
-                let mode_b = u32::from_str_radix(&entry_b.mode, 8).unwrap_or(0);
+            let mode_a = u32::from_str_radix(&entry_a.mode, 8).unwrap_or(0);
+            let mode_b = u32::from_str_radix(&entry_b.mode, 8).unwrap_or(0);
+            if mode_a == 0o040000 && mode_b == 0o040000 {
+                if entry_a.hash != entry_b.hash {
+                    let sub_diffs = compare_trees(
+                        repo,
+                        &hex::encode(entry_a.hash),
+                        &hex::encode(entry_b.hash),
+                        &full_path,
+                    )?;
+                    diffs.extend(sub_diffs);
+                }
+            } else if entry_a.hash != entry_b.hash || mode_a != mode_b {
                 diffs.push(DiffEntry {
                     path: full_path,
                     mode_a,
@@ -174,39 +199,25 @@ pub fn compare_trees(
                     },
                 });
             }
-            // If same, do nothing
         } else {
-            // Only in B
-            let full_path = prefix.join(name);
             let mode_b = u32::from_str_radix(&entry_b.mode, 8).unwrap_or(0);
-            diffs.push(DiffEntry {
-                path: full_path,
-                mode_a: 0,
-                hash_a: String::new(),
-                mode_b,
-                hash_b: hex::encode(entry_b.hash),
-                status: DiffStatus::Added,
-            });
-        }
-    }
-
-    // Recurse into subtrees
-    for (name, entry_a) in &entries_a {
-        if let Some(entry_b) = entries_b.get(name) {
-            let mode_a = u32::from_str_radix(&entry_a.mode, 8).unwrap_or(0);
-            let mode_b = u32::from_str_radix(&entry_b.mode, 8).unwrap_or(0);
-            if mode_a == 0o040000 && mode_b == 0o040000 && entry_a.hash != entry_b.hash {
-                let sub_diffs = compare_trees(
-                    repo,
-                    &hex::encode(entry_a.hash),
-                    &hex::encode(entry_b.hash),
-                    &prefix.join(name),
-                )?;
+            if mode_b == 0o040000 {
+                let sub_diffs = compare_trees(repo, "", &hex::encode(entry_b.hash), &full_path)?;
                 diffs.extend(sub_diffs);
+            } else {
+                diffs.push(DiffEntry {
+                    path: full_path,
+                    mode_a: 0,
+                    hash_a: String::new(),
+                    mode_b,
+                    hash_b: hex::encode(entry_b.hash),
+                    status: DiffStatus::Added,
+                });
             }
         }
     }
 
+    diffs.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(diffs)
 }
 
@@ -324,4 +335,52 @@ pub fn get_file_deltas(content_a: &str, content_b: &str, path: &Path) -> (String
     }
 
     (output, insertions, deletions)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::repository::initialize_repo;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_get_file_deltas_no_change() {
+        let content = "line 1\nline 2\n";
+        let (diff, ins, del) = get_file_deltas(content, content, Path::new("file.txt"));
+        assert_eq!(ins, 0);
+        assert_eq!(del, 0);
+        assert_eq!(diff, "--- a/file.txt\n+++ b/file.txt\n");
+    }
+
+    #[test]
+    fn test_get_file_deltas_modification() {
+        let old = "line 1\nline 2\nline 3\n";
+        let new = "line 1\nline 2 mod\nline 3\n";
+        let (diff, ins, del) = get_file_deltas(old, new, Path::new("file.txt"));
+        assert_eq!(ins, 1);
+        assert_eq!(del, 1);
+        assert!(diff.contains("-line 2\n+line 2 mod\n"));
+    }
+
+    #[test]
+    fn test_get_file_deltas_addition_and_deletion() {
+        let old = "line 1\nline 2\n";
+        let new = "line 1\nline 2\nline 3\n";
+        let (_, ins, del) = get_file_deltas(old, new, Path::new("file.txt"));
+        assert_eq!(ins, 1);
+        assert_eq!(del, 0);
+
+        let (_, ins, del) = get_file_deltas(new, old, Path::new("file.txt"));
+        assert_eq!(ins, 0);
+        assert_eq!(del, 1);
+    }
+
+    #[test]
+    fn test_compare_trees_same_hash() {
+        let temp_dir = TempDir::new().unwrap();
+        initialize_repo(temp_dir.path()).unwrap();
+        let repo = Repository::new(temp_dir.path());
+        let diffs = compare_trees(&repo, "some_hash", "some_hash", Path::new("")).unwrap();
+        assert!(diffs.is_empty());
+    }
 }

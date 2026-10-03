@@ -54,7 +54,7 @@ Grit provides a mix of plumbing and porcelain operations:
 - `grit log [-n <count>] [--oneline] [<commit>]`: Show commit logs.
 - `grit checkout [-b] <branch|hash>`: Restore working directory or switch branches.
 - `grit reset [--soft|--mixed|--hard] <commit>`: Reset current HEAD to the specified state.
-- `grit diff <commit_a> <commit_b> [--stat]`: Show changes between two commits.
+- `grit diff [<commit_a>] [<commit_b>] [--staged|--cached] [--stat]`: Show changes between commits, commit and working tree, working tree and index, or staged changes.
 - `grit branch [-d] [<name>]`: List, create, or delete branches.
 
 ### Plumbing (Low-Level)
