@@ -28,3 +28,14 @@ harness = false
 [[bench]]
 name = "comparison"
 harness = false
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[profile.bench]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
