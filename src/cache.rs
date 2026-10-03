@@ -32,7 +32,7 @@ use crate::plumbing::checkout::TreeEntry;
 use crate::plumbing::objects::Object;
 use lru::LruCache;
 use std::num::NonZeroUsize;
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
 /// High-performance LRU cache for Git objects to improve repository performance.
 ///
@@ -327,10 +327,8 @@ impl Default for CacheManager {
     }
 }
 
-// Global cache instance (lazy static would be better, but keeping it simple)
-lazy_static::lazy_static! {
-    pub static ref GLOBAL_CACHE: CacheManager = CacheManager::new();
-}
+// Global cache instance
+pub static GLOBAL_CACHE: LazyLock<CacheManager> = LazyLock::new(CacheManager::new);
 
 #[cfg(test)]
 mod tests {
