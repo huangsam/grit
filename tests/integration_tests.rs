@@ -90,6 +90,20 @@ fn test_full_git_workflow() {
 }
 
 #[test]
+fn test_cat_file_tree() {
+    let test_dir = setup_integration_test();
+
+    run_grit_command(&test_dir, &["init"]).unwrap();
+    fs::write(test_dir.path().join("hello.txt"), "Hello, World!").unwrap();
+    run_grit_command(&test_dir, &["add", "hello.txt"]).unwrap();
+    let tree_hash = run_grit_command(&test_dir, &["write-tree"]).unwrap();
+
+    let cat_result = run_grit_command(&test_dir, &["cat-file", &tree_hash]).unwrap();
+    assert!(cat_result.contains("hello.txt"));
+    assert!(cat_result.contains("100644"));
+}
+
+#[test]
 fn test_error_cases() {
     let test_dir = setup_integration_test();
 
@@ -637,6 +651,19 @@ fn test_diff_workflow() {
     .unwrap();
     let diff_head = run_grit_command(&test_dir, &["diff", "HEAD"]).unwrap();
     assert!(diff_head.contains("+line 3"));
+
+    // Working tree file deletion diff
+    fs::remove_file(test_dir.path().join("file.txt")).unwrap();
+    let diff_del = run_grit_command(&test_dir, &["diff"]).unwrap();
+    assert!(diff_del.contains("deleted file mode"));
+    assert!(diff_del.contains("--- a/file.txt"));
+    assert!(diff_del.contains("+++ /dev/null"));
+
+    // Working tree vs earlier commit (commit1)
+    fs::write(test_dir.path().join("file.txt"), "line 1\nline 2 new\n").unwrap();
+    let diff_commit1 = run_grit_command(&test_dir, &["diff", &commit1]).unwrap();
+    assert!(diff_commit1.contains("-line 2"));
+    assert!(diff_commit1.contains("+line 2 new"));
 
     // Error case: --staged with two commits
     let err = run_grit_command(&test_dir, &["diff", "--staged", &commit1, &commit2]);
