@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 use grit::commands;
 use grit::error::GritError;
-use grit::plumbing::checkout::restore_snapshot;
 use grit::plumbing::commits::{create_commit, get_current_commit, show_commit_log, update_ref};
 use grit::plumbing::index::read_index;
 use grit::plumbing::objects::{ObjectType, read_object, store_object};
@@ -47,10 +46,13 @@ enum Commands {
         #[arg(short, long)]
         message: String,
     },
-    /// Restore a tree or commit snapshot to the working directory
+    /// Restore a tree or commit snapshot, or switch branches
     Checkout {
-        /// Hash of tree or commit to restore
-        hash: String,
+        /// Branch name or hash of tree/commit to restore
+        target: String,
+        /// Create and checkout a new branch
+        #[arg(short = 'b')]
+        new_branch: bool,
     },
     /// Show commit history
     Log {
@@ -177,9 +179,8 @@ fn main() -> Result<(), GritError> {
             // Output the hash of the created commit for confirmation
             println!("{}", commit_hash);
         }
-        Commands::Checkout { hash } => {
-            restore_snapshot(&hash, Path::new("."))?;
-            println!("Restored snapshot {}", &hash[..8]);
+        Commands::Checkout { target, new_branch } => {
+            commands::checkout::checkout(&target, new_branch, Path::new("."))?;
         }
         Commands::Log { commit, oneline } => {
             show_commit_log(&commit, oneline, Path::new("."))?;

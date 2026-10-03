@@ -28,8 +28,9 @@
 //! at a specific point in time. They can also be used for comparing directory states.
 
 use crate::error::GritError;
+use crate::plumbing::checkout::parse_tree_entries;
 use crate::plumbing::index::{Index, IndexEntry};
-use crate::plumbing::objects::{ObjectType, store_object};
+use crate::plumbing::objects::{ObjectType, read_object, store_object};
 use std::path::Path;
 
 /// Represents a single entry in a Git tree object.
@@ -192,6 +193,56 @@ fn build_tree_recursive(
     }
 
     store_object(&content, ObjectType::Tree, repo_root)
+}
+
+/// Builds an in-memory Index from a tree object hash.
+pub fn build_index_from_tree(tree_hash: &str, repo_root: &Path) -> Result<Index, GritError> {
+    let mut index = Index::new();
+    collect_index_entries(tree_hash, Path::new(""), &mut index, repo_root)?;
+    Ok(index)
+}
+
+fn collect_index_entries(
+    tree_hash: &str,
+    current_path: &Path,
+    index: &mut Index,
+    repo_root: &Path,
+) -> Result<(), GritError> {
+    let tree_obj = read_object(tree_hash, repo_root)?;
+    let entries = parse_tree_entries(&tree_obj.content)?;
+
+    for entry in entries {
+        let entry_path = current_path.join(&entry.name);
+
+        if entry.mode == "40000" {
+            // Directory
+            let sub_tree_hash = hex::encode(entry.hash);
+            collect_index_entries(&sub_tree_hash, &entry_path, index, repo_root)?;
+        } else {
+            // File
+            let blob_hash = hex::encode(entry.hash);
+            let blob_obj = read_object(&blob_hash, repo_root)?;
+            let size = blob_obj.content.len() as u32;
+
+            let index_entry = IndexEntry {
+                ctime_sec: 0,
+                ctime_nsec: 0,
+                mtime_sec: 0,
+                mtime_nsec: 0,
+                dev: 0,
+                ino: 0,
+                mode: u32::from_str_radix(&entry.mode, 8).unwrap_or(0o100644),
+                uid: 0,
+                gid: 0,
+                size,
+                hash: entry.hash,
+                flags: 0,
+                path: entry_path.to_string_lossy().to_string(),
+            };
+            index.add_entry(index_entry);
+        }
+    }
+    Ok(())
 }
 
 /// Creates a snapshot of a directory structure by recursively traversing it

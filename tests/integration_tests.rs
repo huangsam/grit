@@ -366,3 +366,41 @@ fn test_branch_workflow() {
     assert!(list_output3.contains("* main"));
     assert!(!list_output3.contains("feature"));
 }
+
+#[test]
+fn test_checkout_branch_workflow() {
+    let test_dir = setup_integration_test();
+
+    run_grit_command(&test_dir, &["init"]).unwrap();
+    fs::write(test_dir.path().join("base.txt"), "base content").unwrap();
+    run_grit_command(&test_dir, &["add", "."]).unwrap();
+    run_grit_command(&test_dir, &["commit", "-m", "Main commit"]).unwrap();
+
+    // Create and switch to new branch dev
+    let out = run_grit_command(&test_dir, &["checkout", "-b", "dev"]).unwrap();
+    assert!(out.contains("Switched to a new branch 'dev'"));
+
+    // Verify branch list shows dev is active
+    let list = run_grit_command(&test_dir, &["branch"]).unwrap();
+    assert!(list.contains("* dev"));
+    assert!(list.contains("main"));
+
+    // Add a file on dev branch
+    fs::write(test_dir.path().join("dev.txt"), "dev content").unwrap();
+    run_grit_command(&test_dir, &["add", "."]).unwrap();
+    run_grit_command(&test_dir, &["commit", "-m", "Dev commit"]).unwrap();
+    assert!(test_dir.path().join("dev.txt").exists());
+
+    // Switch back to main
+    let out = run_grit_command(&test_dir, &["checkout", "main"]).unwrap();
+    assert!(out.contains("Switched to branch 'main'"));
+    // dev.txt should NOT exist on main
+    assert!(!test_dir.path().join("dev.txt").exists());
+    assert!(test_dir.path().join("base.txt").exists());
+
+    // Switch back to dev
+    let out = run_grit_command(&test_dir, &["checkout", "dev"]).unwrap();
+    assert!(out.contains("Switched to branch 'dev'"));
+    // dev.txt should be restored
+    assert!(test_dir.path().join("dev.txt").exists());
+}

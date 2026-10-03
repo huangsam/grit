@@ -32,6 +32,7 @@
 
 pub mod add;
 pub mod branch;
+pub mod checkout;
 pub mod diff;
 pub mod reset;
 pub mod status;
