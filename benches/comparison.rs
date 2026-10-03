@@ -41,6 +41,13 @@ fn run_grit_command(dir: &std::path::Path, args: &[&str]) {
 fn run_git_command(dir: &std::path::Path, args: &[&str]) {
     Command::new("git")
         .args(args)
+        .envs([
+            ("GIT_AUTHOR_NAME", "Benchmark"),
+            ("GIT_AUTHOR_EMAIL", "bench@grit.local"),
+            ("GIT_COMMITTER_NAME", "Benchmark"),
+            ("GIT_COMMITTER_EMAIL", "bench@grit.local"),
+            ("GIT_PAGER", "cat"),
+        ])
         .current_dir(dir)
         .output()
         .expect("Failed to run Git command");
@@ -136,6 +143,100 @@ fn bench_git_commit(c: &mut Criterion) {
     });
 }
 
+fn bench_grit_diff(c: &mut Criterion) {
+    // Benchmark Grit diff performance on unstaged modifications
+    c.bench_function("grit_diff", |b| {
+        b.iter(|| {
+            let dir = black_box(setup_repo());
+            run_grit_command(dir.path(), &["init"]);
+            run_grit_command(dir.path(), &["add", "."]);
+            run_grit_command(dir.path(), &["commit", "-m", "Initial commit"]);
+            std::fs::write(
+                dir.path().join("file1.txt"),
+                "Hello, world! This is file 1 with diff modifications.",
+            )
+            .unwrap();
+            run_grit_command(dir.path(), &["diff"]);
+        })
+    });
+}
+
+fn bench_git_diff(c: &mut Criterion) {
+    // Benchmark Git diff performance on unstaged modifications for comparison
+    c.bench_function("git_diff", |b| {
+        b.iter(|| {
+            let dir = black_box(setup_repo());
+            run_git_command(dir.path(), &["init"]);
+            run_git_command(dir.path(), &["add", "."]);
+            run_git_command(dir.path(), &["commit", "-m", "Initial commit"]);
+            std::fs::write(
+                dir.path().join("file1.txt"),
+                "Hello, world! This is file 1 with diff modifications.",
+            )
+            .unwrap();
+            run_git_command(dir.path(), &["diff"]);
+        })
+    });
+}
+
+fn bench_grit_log(c: &mut Criterion) {
+    // Benchmark Grit commit log performance
+    c.bench_function("grit_log", |b| {
+        b.iter(|| {
+            let dir = black_box(setup_repo());
+            run_grit_command(dir.path(), &["init"]);
+            run_grit_command(dir.path(), &["add", "."]);
+            run_grit_command(dir.path(), &["commit", "-m", "Initial commit"]);
+            std::fs::write(dir.path().join("file1.txt"), "Second revision of file 1").unwrap();
+            run_grit_command(dir.path(), &["add", "."]);
+            run_grit_command(dir.path(), &["commit", "-m", "Second commit"]);
+            run_grit_command(dir.path(), &["log"]);
+        })
+    });
+}
+
+fn bench_git_log(c: &mut Criterion) {
+    // Benchmark Git commit log performance for comparison
+    c.bench_function("git_log", |b| {
+        b.iter(|| {
+            let dir = black_box(setup_repo());
+            run_git_command(dir.path(), &["init"]);
+            run_git_command(dir.path(), &["add", "."]);
+            run_git_command(dir.path(), &["commit", "-m", "Initial commit"]);
+            std::fs::write(dir.path().join("file1.txt"), "Second revision of file 1").unwrap();
+            run_git_command(dir.path(), &["add", "."]);
+            run_git_command(dir.path(), &["commit", "-m", "Second commit"]);
+            run_git_command(dir.path(), &["log"]);
+        })
+    });
+}
+
+fn bench_grit_checkout(c: &mut Criterion) {
+    // Benchmark Grit branch checkout performance
+    c.bench_function("grit_checkout", |b| {
+        b.iter(|| {
+            let dir = black_box(setup_repo());
+            run_grit_command(dir.path(), &["init"]);
+            run_grit_command(dir.path(), &["add", "."]);
+            run_grit_command(dir.path(), &["commit", "-m", "Initial commit"]);
+            run_grit_command(dir.path(), &["checkout", "-b", "feature"]);
+        })
+    });
+}
+
+fn bench_git_checkout(c: &mut Criterion) {
+    // Benchmark Git branch checkout performance for comparison
+    c.bench_function("git_checkout", |b| {
+        b.iter(|| {
+            let dir = black_box(setup_repo());
+            run_git_command(dir.path(), &["init"]);
+            run_git_command(dir.path(), &["add", "."]);
+            run_git_command(dir.path(), &["commit", "-m", "Initial commit"]);
+            run_git_command(dir.path(), &["checkout", "-b", "feature"]);
+        })
+    });
+}
+
 criterion_group!(
     benches,
     bench_grit_init,
@@ -145,6 +246,12 @@ criterion_group!(
     bench_grit_status,
     bench_git_status,
     bench_grit_commit,
-    bench_git_commit
+    bench_git_commit,
+    bench_grit_diff,
+    bench_git_diff,
+    bench_grit_log,
+    bench_git_log,
+    bench_grit_checkout,
+    bench_git_checkout
 );
 criterion_main!(benches);
