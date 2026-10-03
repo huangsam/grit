@@ -1,12 +1,11 @@
+use assert_cmd::cargo::cargo_bin;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::path::PathBuf;
 use std::process::Command;
 use tempfile::TempDir;
 
 fn grit_binary_path() -> PathBuf {
-    let mut path = std::env::current_dir().unwrap();
-    path.push("target/release/grit");
-    path
+    cargo_bin("grit")
 }
 
 fn setup_repo() -> TempDir {
