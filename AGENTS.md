@@ -51,7 +51,8 @@ Grit provides a mix of plumbing and porcelain operations:
 - `grit add <files...>`: Add file contents to the index. Supports glob patterns and respects `.gritignore`.
 - `grit status`: Show the working tree status, hiding files ignored by `.gritignore`.
 - `grit commit -m <msg>`: Create a new commit containing the current contents of the index.
-- `grit log`: Show commit logs.
+- `grit log [-n <count>] [--oneline] [<commit>]`: Show commit logs.
+- `grit checkout [-b] <branch|hash>`: Restore working directory or switch branches.
 - `grit reset [--soft|--mixed|--hard] <commit>`: Reset current HEAD to the specified state.
 - `grit diff <commit_a> <commit_b> [--stat]`: Show changes between two commits.
 - `grit branch [-d] [<name>]`: List, create, or delete branches.
@@ -60,7 +61,6 @@ Grit provides a mix of plumbing and porcelain operations:
 - `grit hash-object <file>`: Store file as blob, print SHA-1.
 - `grit cat-file <hash>`: Display object content (blob raw, tree/commit pretty-printed).
 - `grit write-tree`: Create a tree object from the current index.
-- `grit checkout <hash>`: Restore working directory from tree/commit.
 
 ## Dependencies (Cargo.toml)
 

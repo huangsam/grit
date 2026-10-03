@@ -62,6 +62,9 @@ enum Commands {
         /// Show compact one-line format
         #[arg(short, long)]
         oneline: bool,
+        /// Maximum number of commits to show
+        #[arg(short = 'n', long = "max-count")]
+        max_count: Option<usize>,
     },
     /// Add files to the staging area
     Add {
@@ -182,8 +185,12 @@ fn main() -> Result<(), GritError> {
         Commands::Checkout { target, new_branch } => {
             commands::checkout::checkout(&target, new_branch, Path::new("."))?;
         }
-        Commands::Log { commit, oneline } => {
-            show_commit_log(&commit, oneline, Path::new("."))?;
+        Commands::Log {
+            commit,
+            oneline,
+            max_count,
+        } => {
+            show_commit_log(&commit, oneline, max_count, Path::new("."))?;
         }
         Commands::Add { files } => {
             commands::add::add_files(&files, Path::new("."))?;

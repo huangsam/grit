@@ -235,12 +235,18 @@ pub fn get_current_commit(repo_root: &Path) -> Result<Option<String>, GritError>
 /// # Arguments
 /// * `start_hash` - The commit hash to start from (or "HEAD" for current)
 /// * `oneline` - Whether to use compact one-line format
+/// * `max_count` - Optional maximum number of commits to display
 /// * `repo_root` - The root directory of the repository
 ///
 /// # Returns
 /// * `Ok(())` - If the log was displayed successfully
 /// * `Err(GritError)` - If reading commits or resolving references fails
-pub fn show_commit_log(start_hash: &str, oneline: bool, repo_root: &Path) -> Result<(), GritError> {
+pub fn show_commit_log(
+    start_hash: &str,
+    oneline: bool,
+    max_count: Option<usize>,
+    repo_root: &Path,
+) -> Result<(), GritError> {
     let repo = crate::repository::Repository::new(repo_root);
     let mut current_hash = if start_hash == "HEAD" {
         get_current_commit(repo_root)?.ok_or(GritError::no_commits())?
@@ -248,7 +254,15 @@ pub fn show_commit_log(start_hash: &str, oneline: bool, repo_root: &Path) -> Res
         start_hash.to_string()
     };
 
+    let mut count = 0;
     loop {
+        if let Some(limit) = max_count
+            && count >= limit
+        {
+            break;
+        }
+        count += 1;
+
         let commit = crate::plumbing::objects::read_commit(&repo, &current_hash)?;
 
         if oneline {
@@ -524,7 +538,7 @@ mod tests {
     fn test_show_commit_log_no_commits() {
         let test_dir = setup_test_repo();
 
-        let result = show_commit_log("HEAD", false, test_dir.path());
+        let result = show_commit_log("HEAD", false, None, test_dir.path());
         assert!(result.is_err());
 
         assert!(matches!(
@@ -539,7 +553,7 @@ mod tests {
     fn test_show_commit_log_invalid_commit() {
         let test_dir = setup_test_repo();
 
-        let result = show_commit_log("invalid", false, test_dir.path());
+        let result = show_commit_log("invalid", false, None, test_dir.path());
         assert!(result.is_err());
     }
 }

@@ -173,6 +173,12 @@ fn test_log_command() {
     assert!(oneline_output.lines().count() == 2); // Two commits
     assert!(oneline_output.contains("Second commit"));
     assert!(oneline_output.contains("First commit"));
+
+    // Test -n 1 limit
+    let limit_result = run_grit_command(&test_dir, &["log", "--oneline", "-n", "1"]).unwrap();
+    assert_eq!(limit_result.lines().count(), 1);
+    assert!(limit_result.contains("Second commit"));
+    assert!(!limit_result.contains("First commit"));
 }
 
 #[test]
