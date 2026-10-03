@@ -1,17 +1,12 @@
-mod cache;
-mod commands;
-mod error;
-mod plumbing;
-mod repository;
-
-use crate::error::GritError;
-use crate::plumbing::checkout::restore_snapshot;
-use crate::plumbing::commits::{create_commit, get_current_commit, show_commit_log, update_ref};
-use crate::plumbing::index::read_index;
-use crate::plumbing::objects::{ObjectType, read_object, store_object};
-use crate::plumbing::trees::write_tree_from_index;
-use crate::repository::{Repository, initialize_repo};
 use clap::{Parser, Subcommand};
+use grit::commands;
+use grit::error::GritError;
+use grit::plumbing::checkout::restore_snapshot;
+use grit::plumbing::commits::{create_commit, get_current_commit, show_commit_log, update_ref};
+use grit::plumbing::index::read_index;
+use grit::plumbing::objects::{ObjectType, read_object, store_object};
+use grit::plumbing::trees::write_tree_from_index;
+use grit::repository::{Repository, initialize_repo};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
