@@ -46,7 +46,11 @@ fn test_reset_workflow() {
 
     // 2. Test default (mixed) reset with no commit argument (resets staged changes against HEAD)
     let reset_default = run_grit_command(&test_dir, &["reset"]);
-    assert!(reset_default.is_ok(), "Reset default failed: {:?}", reset_default);
+    assert!(
+        reset_default.is_ok(),
+        "Reset default failed: {:?}",
+        reset_default
+    );
 
     let status_after_default = run_grit_command(&test_dir, &["status"]).unwrap();
     assert!(!status_after_default.contains("Changes to be committed:"));
@@ -61,7 +65,11 @@ fn test_reset_workflow() {
 
     // 3. Test --mixed reset to commit1
     let reset_mixed = run_grit_command(&test_dir, &["reset", "--mixed", &commit1]);
-    assert!(reset_mixed.is_ok(), "Reset --mixed failed: {:?}", reset_mixed);
+    assert!(
+        reset_mixed.is_ok(),
+        "Reset --mixed failed: {:?}",
+        reset_mixed
+    );
 
     // HEAD moved to commit1
     let log_out = run_grit_command(&test_dir, &["log", "--oneline"]).unwrap();
