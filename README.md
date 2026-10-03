@@ -44,8 +44,13 @@ grit add .
 grit status
 grit commit -m "Initial commit"
 
-# View history
-grit log --oneline
+# Create and switch branches
+grit checkout -b feature
+grit branch
+
+# View history and diffs
+grit log --oneline -n 5
+grit diff
 ```
 
 ### Commands
@@ -53,19 +58,20 @@ grit log --oneline
 #### Porcelain (User-Friendly)
 
 - `grit init` - Initialize repository
-- `grit add <files>` - Stage files for commit
+- `grit add <files...>` - Stage files for commit (supports globs and `.gritignore`)
 - `grit status` - Show working directory status
 - `grit commit -m <msg>` - Create commit
-- `grit log` - Show commit history
-- `grit reset` - Reset to previous state
-- `grit diff` - Show changes between commits
+- `grit log [-n <count>] [--oneline] [<commit>]` - Show commit history
+- `grit checkout [-b] <branch|hash>` - Switch branches or restore working directory
+- `grit branch [-d] [<name>]` - List, create, or delete branches
+- `grit reset [--soft|--mixed|--hard] <commit>` - Reset HEAD and working directory
+- `grit diff [<commit_a>] [<commit_b>] [--staged] [--stat]` - Show changes between commits, working tree, or staging area
 
 #### Plumbing (Low-Level)
 
 - `grit hash-object <file>` - Store file in object database
-- `grit cat-file -p <hash>` - Display object content
+- `grit cat-file <hash>` - Display object content
 - `grit write-tree` - Create tree from index
-- `grit checkout <hash>` - Restore working directory
 
 ### Ignoring Files
 
