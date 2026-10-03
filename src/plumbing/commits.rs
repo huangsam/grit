@@ -99,7 +99,7 @@ pub fn create_commit(
 /// - Be within reasonable length limits
 ///
 /// This prevents path traversal attacks and ensures reference names are valid.
-fn validate_ref_name(ref_name: &str) -> Result<(), GritError> {
+pub fn validate_ref_name(ref_name: &str) -> Result<(), GritError> {
     if ref_name.is_empty() {
         return Err(GritError::invalid_ref_name(format!(
             "{}: reference name cannot be empty",

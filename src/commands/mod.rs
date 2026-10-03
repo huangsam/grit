@@ -20,6 +20,7 @@
 //! - [status]: Show working directory status
 //! - [reset]: Reset to previous states
 //! - [diff]: Show differences between commits/files
+//! - [branch]: Manage repository branches
 //!
 //! Each command module parses arguments, validates input, calls plumbing operations,
 //! and formats results for users.
@@ -30,6 +31,7 @@
 //! and ignore pattern processing.
 
 pub mod add;
+pub mod branch;
 pub mod diff;
 pub mod reset;
 pub mod status;

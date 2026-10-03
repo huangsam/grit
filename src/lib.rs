@@ -28,6 +28,7 @@
 //! - [status](commands::status): Show working directory status (`grit status`)
 //! - [reset](commands::reset): Reset HEAD and working directory (`grit reset`)
 //! - [diff](commands::diff): Show changes between commits (`grit diff`)
+//! - [branch](commands::branch): Manage repository branches (`grit branch`)
 //!
 //! ### Infrastructure
 //! - [repository]: Repository initialization and management

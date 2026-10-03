@@ -334,3 +334,35 @@ fn test_git_compatibility() {
     assert_eq!(read_obj.obj_type, grit::plumbing::objects::ObjectType::Blob);
     assert_eq!(read_obj.content, binary_content);
 }
+
+#[test]
+fn test_branch_workflow() {
+    let test_dir = setup_integration_test();
+
+    run_grit_command(&test_dir, &["init"]).unwrap();
+    fs::write(test_dir.path().join("file.txt"), "hello").unwrap();
+    run_grit_command(&test_dir, &["add", "."]).unwrap();
+    run_grit_command(&test_dir, &["commit", "-m", "First commit"]).unwrap();
+
+    // Verify initial branch list
+    let list_output = run_grit_command(&test_dir, &["branch"]).unwrap();
+    assert!(list_output.contains("* main"));
+
+    // Create a new branch
+    let create_output = run_grit_command(&test_dir, &["branch", "feature"]).unwrap();
+    assert!(create_output.is_empty() || !create_output.contains("Error"));
+
+    // List branches - should show both with main active
+    let list_output2 = run_grit_command(&test_dir, &["branch"]).unwrap();
+    assert!(list_output2.contains("* main"));
+    assert!(list_output2.contains("feature"));
+
+    // Delete the feature branch
+    let delete_output = run_grit_command(&test_dir, &["branch", "-d", "feature"]).unwrap();
+    assert!(delete_output.contains("Deleted branch feature"));
+
+    // List branches - feature should be gone
+    let list_output3 = run_grit_command(&test_dir, &["branch"]).unwrap();
+    assert!(list_output3.contains("* main"));
+    assert!(!list_output3.contains("feature"));
+}

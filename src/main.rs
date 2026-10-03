@@ -100,6 +100,15 @@ enum Commands {
         #[arg(long)]
         stat: bool,
     },
+    /// List, create, or delete branches
+    Branch {
+        /// Branch name to create
+        name: Option<String>,
+
+        /// Delete a branch
+        #[arg(short, long)]
+        delete: Option<String>,
+    },
 }
 
 fn main() -> Result<(), GritError> {
@@ -225,6 +234,13 @@ fn main() -> Result<(), GritError> {
         } => {
             let repo = Repository::new(Path::new("."));
             commands::diff::run_diff_command(&repo, &hash_a, &hash_b, stat)?;
+        }
+        Commands::Branch { name, delete } => {
+            commands::branch::run_branch_command(
+                name.as_deref(),
+                delete.as_deref(),
+                Path::new("."),
+            )?;
         }
     };
     Ok(())

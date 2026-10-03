@@ -54,6 +54,7 @@ Grit provides a mix of plumbing and porcelain operations:
 - `grit log`: Show commit logs.
 - `grit reset [--soft|--mixed|--hard] <commit>`: Reset current HEAD to the specified state.
 - `grit diff <commit_a> <commit_b> [--stat]`: Show changes between two commits.
+- `grit branch [-d] [<name>]`: List, create, or delete branches.
 
 ### Plumbing (Low-Level)
 - `grit hash-object <file>`: Store file as blob, print SHA-1.
