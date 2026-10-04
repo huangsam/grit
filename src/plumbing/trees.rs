@@ -202,6 +202,7 @@ pub fn build_index_from_tree(tree_hash: &str, repo_root: &Path) -> Result<Index,
     Ok(index)
 }
 
+/// Recursively collects index entries from a tree object and its subtrees.
 fn collect_index_entries(
     tree_hash: &str,
     current_path: &Path,

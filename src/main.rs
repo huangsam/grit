@@ -1,3 +1,8 @@
+//! Grit CLI - A high-performance Git implementation in Rust.
+//!
+//! This binary provides the command-line interface for Grit, supporting both
+//! plumbing and porcelain Git commands.
+
 use clap::{Parser, Subcommand};
 use grit::commands;
 use grit::error::GritError;
@@ -21,6 +26,7 @@ struct Cli {
     command: Commands,
 }
 
+/// Available CLI subcommands for Grit.
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Initialize a new Grit repository
