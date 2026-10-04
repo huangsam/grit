@@ -1,6 +1,11 @@
 /target
 .grit/
+
 brainstorm/
+scratch/
+playground/
+
 proptest-regressions/
 test_*/
+
 .DS_Store
